@@ -31,7 +31,7 @@ private slots:
 
     void on_pushButton_copy_clicked();
 
-    void on_pushButton_insert_clicked();
+    void on_pushButton_paste_clicked();
 
     void on_pushButton_delete_clicked();
 
@@ -57,10 +57,12 @@ private:
     QStandardItemModel* model;
     QStandardItemModel* model_storages_;
     std::optional<QSqlQuery> ExecuteSQL(const QString& command);
+    QString  AddRowSQLString (const QString& storage, const QMap<QString, QString>& date_);
     bool AddRowSQL (const QString& storage, const QMap<QString, QString>& date_);
     bool DeleteFromSQL (const QString& storage, const QString& id);
     bool StorageAdding(const QString& id_string, QString& new_text);
     bool UpdateStorageLine(const QVector <QString>& vect_deals, int column, QString& new_text, const QString& id_string);
+    QString GetCurrentDate (); // получить дату Сегодня из SQL
     QSqlDatabase db_;
    /* const QModelIndex* index_buffer_ = nullptr;
     const QModelIndex* index_for_copy_ = nullptr;

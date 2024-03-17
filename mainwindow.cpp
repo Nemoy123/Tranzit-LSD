@@ -64,7 +64,7 @@ QString ValuesString (const QVector <QString>& vect) {
 }
 
 //template <typename T>
-bool MainWindow::AddRowSQL (const QString& storage, const QMap<QString, QString>& date_){
+QString MainWindow::AddRowSQLString (const QString& storage, const QMap<QString, QString>& date_){
     //T date_ = std::forward<QMap<QString, QString>>(date);
     QString command = "INSERT INTO ";
     command += storage + " (";
@@ -87,13 +87,20 @@ bool MainWindow::AddRowSQL (const QString& storage, const QMap<QString, QString>
     }
     key_stroke += ")";
     value_stroke += ")";
-    command += key_stroke +" VALUES ("+ value_stroke;
-
-    auto query = ExecuteSQL(command);
-    if (query->isActive()) { // isActive() вернет true если запрос SQL успешен
-        return true;
+    command += key_stroke +" VALUES ("+ value_stroke + " RETURNING id";
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            return query.value().value(0).toString();
+        }
     }
-    return false;
+
+    return "-1";
+
+}
+
+bool MainWindow::AddRowSQL (const QString& storage, const QMap<QString, QString>& date_) {
+
+    return ( AddRowSQLString (storage, date_) != "-1");
 }
 
 bool MainWindow::DeleteFromSQL (const QString& storage, const QString& id) {
@@ -339,6 +346,8 @@ bool MainWindow::UpdateStorageLine(const QVector <QString>& vect_deals, int colu
 
 void MainWindow::on_pushButton_deals_clicked()
 {
+    ui->buttons_action->setVisible(true);
+
     model =  new QStandardItemModel(10, 18);
     // установка заголовков таблицы
 
@@ -426,7 +435,7 @@ void MainWindow::on_pushButton_copy_clicked()
 }
 
 
-void MainWindow::on_pushButton_insert_clicked()
+void MainWindow::on_pushButton_paste_clicked()
 {
     if (index_for_copy_ < 0) {
         QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужную ячейку и нажмите Скопировать!");
@@ -436,45 +445,28 @@ void MainWindow::on_pushButton_insert_clicked()
     auto row = index_for_copy_;
     //нашли ID копируемого объекта
     //auto id_copy = FindID (index_for_copy->row(), index_for_copy->column()).toString();
+    QMap<QString, QString> date;
+    QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                                "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
 
-    QVector <QString> vect;
+
     // копируем всё кроме id
     for (auto column = 0; column < model->columnCount()-1; ++column)
     {
-        vect.push_back( model->item(row, column)->data(Qt::DisplayRole).toString() );
+        date [vect_names[column]] = model->item(row, column)->data(Qt::DisplayRole).toString();
+
     }
-    QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
-                          "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
-    QString command = "INSERT INTO deals (";
-    bool begin = true;
-    for (const auto& word : vect_names) {
-        if (!begin) command += ", ";
-        command += word;
-        begin = false;
-    }
-    command += ") VALUES (";
-    begin = true;
-    int counter = 0;
-    for (const auto& word : vect) {
-        if (!begin) { command += ", "; }
-        command +="'";
-        if (counter == 0 && index_buffer_ > 0) {
-            command += model->item(index_buffer_, 0)->data(Qt::DisplayRole).toString();
+    if (index_buffer_ > 0) {
+        if (model->item(index_buffer_, 0) != nullptr) { // если ячейка не пустая
+            date["date_of_deal"] = model->item(index_buffer_, 0)->data(Qt::DisplayRole).toString();
         }
         else {
-            command += word;
+            date["date_of_deal"] = GetCurrentDate();
         }
-        command +="'";
-        begin = false;
-        ++counter;
     }
-    command += ")";
-    QSqlQuery change_query = QSqlQuery(db_);
-    if (!change_query.exec( command )) {
-        qDebug() << change_query.lastError().databaseText();
-        qDebug() << change_query.lastError().driverText();
-        return;
-    }
+    auto id_num = AddRowSQLString ("deals", date);
+    QString temp ={};
+    StorageAdding(id_num, temp);
     on_pushButton_deals_clicked();
     index_buffer_ = -1; // сброс буфера
 }
@@ -488,20 +480,21 @@ void MainWindow::on_pushButton_delete_clicked()
     }
     auto id = FindID (index_buffer_, 17).toString();
     QString command = "DELETE FROM deals WHERE id = ";
-    command += id;
+    command += "'" + id + "'";
     QSqlQuery change_query = QSqlQuery(db_);
     if (!change_query.exec( command )) {
         qDebug() << change_query.lastError().databaseText();
         qDebug() << change_query.lastError().driverText();
         return;
     }
+    //Удалить старые данные из storages привязанные к ID основной таблицы
+    DeleteFromSQL("storages", id);
+
     on_pushButton_deals_clicked();
     index_buffer_ = -1; // сброс буфера
 }
 
-
-void MainWindow::on_pushButton_new_clicked()
-{
+QString MainWindow::GetCurrentDate () {
     QString command = "SELECT CURRENT_DATE";
     QString date;
     if (auto query = ExecuteSQL (command)) {
@@ -510,7 +503,14 @@ void MainWindow::on_pushButton_new_clicked()
             date = query.value().value(0).toString();
         }
     }
-    ExecuteSQL (QString{"INSERT INTO deals (date_of_deal) VALUES ('"+ date + "')"});
+    return date;
+}
+
+void MainWindow::on_pushButton_new_clicked()
+{
+
+    //QString date = GetCurrentDate ();
+    ExecuteSQL (QString{"INSERT INTO deals (date_of_deal) VALUES ('"+ GetCurrentDate () + "')"});
     on_pushButton_deals_clicked();
 }
 
@@ -552,6 +552,7 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
     auto store = item->text();
     ui->statusbar->showMessage(store);
     ShowStorages(store);
+    ui->buttons_action->setVisible(false);
 }
 
 void MainWindow::ShowStorages(const QString& store) {

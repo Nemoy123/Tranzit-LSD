@@ -343,6 +343,13 @@ bool MainWindow::UpdateStorageLine(const QVector <QString>& vect_deals, int colu
     return true;
 }
 
+void MainWindow::tableSelectionChanged(QItemSelection, QItemSelection) {
+    auto listindexes = ui->tableView->selectionModel()->selectedIndexes();
+    index_set_rows.clear();
+    for (const auto& index : listindexes) {
+        index_set_rows.insert(index.row());
+    }
+}
 
 void MainWindow::on_pushButton_deals_clicked()
 {
@@ -404,6 +411,8 @@ void MainWindow::on_pushButton_deals_clicked()
                         StorageAdding(id_string, new_text);
                         on_pushButton_deals_clicked();
                     });
+
+
     ui->tableView->setWordWrap(1);
     ui->tableView->setModel(model); //устанавливает перенос слов
     ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
@@ -411,15 +420,27 @@ void MainWindow::on_pushButton_deals_clicked()
     //прокрутка вниз влево
     QModelIndex bottomLeft = model->index(model-> rowCount() - 1, 0);
     ui->tableView->scrollTo(bottomLeft);
+    connect(ui->tableView->selectionModel(),
+            SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
+            this,
+            SLOT(tableSelectionChanged(QItemSelection, QItemSelection)));
+    // connect(
+    //     table->selectionModel(),
+    //     SIGNAL(selectionChanged(const QItemSelection & selected, const QItemSelection & deselected)),
+    //     this,
+    //     SLOT(slotLoadTransaction(const QItemSelection & selected, const QItemSelection & deselected))
+    //     );
 
     UpdateListStorage();
 
 }
 
 
+
 void MainWindow::on_tableView_clicked(const QModelIndex &index)
 {
     index_buffer_ = index.row();
+
 }
 
 void MainWindow::on_pushButton_copy_clicked()

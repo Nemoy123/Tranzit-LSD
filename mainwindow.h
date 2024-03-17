@@ -49,6 +49,8 @@ private slots:
 
     void on_listWidget_itemDoubleClicked(QListWidgetItem *item);
 
+    void tableSelectionChanged(QItemSelection, QItemSelection);
+
 private:
     QVariant FindID (int row, int column);
     void UpdateListStorage();
@@ -67,8 +69,10 @@ private:
    /* const QModelIndex* index_buffer_ = nullptr;
     const QModelIndex* index_for_copy_ = nullptr;
 */
+
     int index_buffer_ = -1;
     int index_for_copy_ = -1;
+    QSet <int> index_set_rows{};
 
 };
 #endif // MAINWINDOW_H

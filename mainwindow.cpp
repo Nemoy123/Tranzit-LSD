@@ -343,13 +343,7 @@ bool MainWindow::UpdateStorageLine(const QVector <QString>& vect_deals, int colu
     return true;
 }
 
-void MainWindow::tableSelectionChanged(QItemSelection, QItemSelection) {
-    auto listindexes = ui->tableView->selectionModel()->selectedIndexes();
-    index_set_rows.clear();
-    for (const auto& index : listindexes) {
-        index_set_rows.insert(index.row());
-    }
-}
+
 
 void MainWindow::on_pushButton_deals_clicked()
 {
@@ -435,84 +429,100 @@ void MainWindow::on_pushButton_deals_clicked()
 
 }
 
-
-
-void MainWindow::on_tableView_clicked(const QModelIndex &index)
-{
-    index_buffer_ = index.row();
-
+void MainWindow::tableSelectionChanged(QItemSelection, QItemSelection) {
+    auto listindexes = ui->tableView->selectionModel()->selectedIndexes();
+    index_set_rows.clear();
+    for (const auto& index : listindexes) {
+        index_set_rows.insert(index.row());
+    }
+    //std::sort(index_set_rows.begin(), index_set_rows.end());
+    qDebug() << "Row ";
+    for (auto& row_i : index_set_rows) {
+        qDebug() << row_i;
+    }
 }
+
+// void MainWindow::on_tableView_clicked(const QModelIndex &index)
+// {
+//     index_buffer_ = index.row();
+
+// }
 
 void MainWindow::on_pushButton_copy_clicked()
 {
-    if (index_buffer_ < 0) {
-        QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужную ячейку и нажмите Скопировать!");
+    if (index_set_rows.empty()) {
+        QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужные строки и нажмите Скопировать!");
         return;
     }
     else {
-        index_for_copy_ = index_buffer_;
-        index_buffer_ = -1; // сброс буфера
+
+        index_set_rows_copy = index_set_rows;
+
     }
 }
 
 
 void MainWindow::on_pushButton_paste_clicked()
 {
-    if (index_for_copy_ < 0) {
-        QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужную ячейку и нажмите Скопировать!");
+    if (index_set_rows_copy.empty()) {
+        QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужные строки и нажмите Скопировать!");
         return;
     }
+    //bool begin = true;
+    for (const auto& row : index_set_rows_copy) {
+        //auto row = index_for_copy_;
+        //нашли ID копируемого объекта
+        //auto id_copy = FindID (index_for_copy->row(), index_for_copy->column()).toString();
+        QMap<QString, QString> date;
+        QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                                    "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
 
-    auto row = index_for_copy_;
-    //нашли ID копируемого объекта
-    //auto id_copy = FindID (index_for_copy->row(), index_for_copy->column()).toString();
-    QMap<QString, QString> date;
-    QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
-                                "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
 
+        // копируем всё кроме id
+        for (auto column = 0; column < model->columnCount()-1; ++column)
+        {
+            date [vect_names[column]] = model->item(row, column)->data(Qt::DisplayRole).toString();
 
-    // копируем всё кроме id
-    for (auto column = 0; column < model->columnCount()-1; ++column)
-    {
-        date [vect_names[column]] = model->item(row, column)->data(Qt::DisplayRole).toString();
-
-    }
-    if (index_buffer_ > 0) {
-        if (model->item(index_buffer_, 0) != nullptr) { // если ячейка не пустая
-            date["date_of_deal"] = model->item(index_buffer_, 0)->data(Qt::DisplayRole).toString();
         }
-        else {
-            date["date_of_deal"] = GetCurrentDate();
+
+        if (*index_set_rows.begin()  != *index_set_rows_copy.begin()) {
+            if (model->item(*index_set_rows.begin(), 0) != nullptr) { // если ячейка не пустая
+                date["date_of_deal"] = model->item(*index_set_rows.begin(), 0)->data(Qt::DisplayRole).toString();
+            }
+            else {
+                date["date_of_deal"] = GetCurrentDate();
+            }
         }
+        auto id_num = AddRowSQLString ("deals", date);
+        QString temp ={};
+        StorageAdding(id_num, temp);
+        on_pushButton_deals_clicked();
+        //index_buffer_ = -1; // сброс буфера
+        //begin = false;
     }
-    auto id_num = AddRowSQLString ("deals", date);
-    QString temp ={};
-    StorageAdding(id_num, temp);
-    on_pushButton_deals_clicked();
-    index_buffer_ = -1; // сброс буфера
 }
 
 
 void MainWindow::on_pushButton_delete_clicked()
 {
-    if (index_buffer_ < 0) {
+    if (index_set_rows.empty()) {
         QMessageBox::critical(this, "НЕ УДАЛЕНО", "Выделите любую ячейку в удаляемой строке и нажмите УДАЛИТЬ!");
         return;
     }
-    auto id = FindID (index_buffer_, 17).toString();
-    QString command = "DELETE FROM deals WHERE id = ";
-    command += "'" + id + "'";
-    QSqlQuery change_query = QSqlQuery(db_);
-    if (!change_query.exec( command )) {
-        qDebug() << change_query.lastError().databaseText();
-        qDebug() << change_query.lastError().driverText();
-        return;
+    for (auto& row : index_set_rows) {
+        auto id = FindID (row, 17).toString();
+        QString command = "DELETE FROM deals WHERE id = ";
+        command += "'" + id + "'";
+        QSqlQuery change_query = QSqlQuery(db_);
+        if (!change_query.exec( command )) {
+            qDebug() << change_query.lastError().databaseText();
+            qDebug() << change_query.lastError().driverText();
+            return;
+        }
+        //Удалить старые данные из storages привязанные к ID основной таблицы
+        DeleteFromSQL("storages", id);
     }
-    //Удалить старые данные из storages привязанные к ID основной таблицы
-    DeleteFromSQL("storages", id);
-
     on_pushButton_deals_clicked();
-    index_buffer_ = -1; // сброс буфера
 }
 
 QString MainWindow::GetCurrentDate () {
@@ -633,3 +643,6 @@ void MainWindow::ShowStorages(const QString& store) {
     ui->tableView->scrollTo(bottomLeft);
 
 }
+
+
+

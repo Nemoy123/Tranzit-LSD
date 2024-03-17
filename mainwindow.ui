@@ -101,7 +101,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="pushButton_insert">
+          <widget class="QPushButton" name="pushButton_paste">
            <property name="styleSheet">
             <string notr="true">QPushButton {
 	background-color: rgb (215,215,215);

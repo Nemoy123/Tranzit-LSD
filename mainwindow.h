@@ -9,6 +9,7 @@
 #include <QStandardItemModel>
 #include <QListWidgetItem>
 #include <optional>
+#include <set>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -27,7 +28,7 @@ public:
 private slots:
     void on_pushButton_deals_clicked();
 
-    void on_tableView_clicked(const QModelIndex &index);
+    //void on_tableView_clicked(const QModelIndex &index);
 
     void on_pushButton_copy_clicked();
 
@@ -51,6 +52,8 @@ private slots:
 
     void tableSelectionChanged(QItemSelection, QItemSelection);
 
+    void on_pushButton_insert_clicked();
+
 private:
     QVariant FindID (int row, int column);
     void UpdateListStorage();
@@ -70,9 +73,10 @@ private:
     const QModelIndex* index_for_copy_ = nullptr;
 */
 
-    int index_buffer_ = -1;
-    int index_for_copy_ = -1;
-    QSet <int> index_set_rows{};
+    //int index_buffer_ = -1;
+    //int index_for_copy_ = -1;
+    std::set <int> index_set_rows{};
+    std::set <int> index_set_rows_copy{};
 
 };
 #endif // MAINWINDOW_H

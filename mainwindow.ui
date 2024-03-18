@@ -153,9 +153,9 @@ QPushButton:pressed {
     <property name="title">
      <string>Файл</string>
     </property>
-    <addaction name="action_2"/>
+    <addaction name="settings"/>
     <addaction name="separator"/>
-    <addaction name="action"/>
+    <addaction name="exit"/>
    </widget>
    <addaction name="menu"/>
   </widget>
@@ -171,12 +171,12 @@ QPushButton:pressed {
     <bool>false</bool>
    </attribute>
   </widget>
-  <action name="action">
+  <action name="exit">
    <property name="text">
     <string>Выйти из программы</string>
    </property>
   </action>
-  <action name="action_2">
+  <action name="settings">
    <property name="text">
     <string>Настройки</string>
    </property>

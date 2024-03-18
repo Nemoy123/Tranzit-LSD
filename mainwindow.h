@@ -32,8 +32,6 @@ private slots:
 
     void on_pushButton_copy_clicked();
 
-    void on_pushButton_paste_clicked();
-
     void on_pushButton_delete_clicked();
 
     void on_pushButton_new_clicked();
@@ -52,7 +50,11 @@ private slots:
 
     void tableSelectionChanged(QItemSelection, QItemSelection);
 
-    void on_pushButton_insert_clicked();
+    void on_settings_triggered();
+
+    void on_exit_triggered();
+
+    void on_pushButton_paste_clicked();
 
 private:
     QVariant FindID (int row, int column);
@@ -66,15 +68,10 @@ private:
     bool AddRowSQL (const QString& storage, const QMap<QString, QString>& date_);
     bool DeleteFromSQL (const QString& storage, const QString& id);
     bool StorageAdding(const QString& id_string, QString& new_text);
-    bool UpdateStorageLine(const QVector <QString>& vect_deals, int column, QString& new_text, const QString& id_string);
+    //bool UpdateStorageLine(const QVector <QString>& vect_deals, int column, QString& new_text, const QString& id_string);
     QString GetCurrentDate (); // получить дату Сегодня из SQL
     QSqlDatabase db_;
-   /* const QModelIndex* index_buffer_ = nullptr;
-    const QModelIndex* index_for_copy_ = nullptr;
-*/
 
-    //int index_buffer_ = -1;
-    //int index_for_copy_ = -1;
     std::set <int> index_set_rows{};
     std::set <int> index_set_rows_copy{};
 

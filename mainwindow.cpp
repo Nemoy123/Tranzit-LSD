@@ -14,7 +14,7 @@
 #include <QTableView>
 #include <QVariant>
 #include <QMap>
-
+#include "settingwindow.h"
 
 
 void MainWindow::UpdateListStorage() {
@@ -230,120 +230,6 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     return false;
 }
 
-bool MainWindow::UpdateStorageLine(const QVector <QString>& vect_deals, int column, QString& new_text, const QString& id_string) {
-    QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
-                          "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
-    const QString old_item = vect_deals.at(column);
-    QString command_store;
-    command_store = "UPDATE storages SET ";
-    if (column == 0) { //date_of_deal
-        command_store += vect.at(0) + " = '"+ new_text + "' WHERE main_table_id = " + id_string;
-    }
-    else if (column == 1) {
-        // если в старом значении есть НБ, а в новом нет -  либо удалить запись  прихода со склада
-        //либо заменить на списание со склада
-        if (old_item.indexOf("НБ") == 0) {
-            if (new_text.indexOf("НБ") == 0) { // приход с одной базы перекидывается на другую
-                command_store += "storage_name";
-            }
-            else {  // ошибка строки??? удалить приход???
-                // есть ли в поставщике НБ (списание со склада) -
-                // если нет -просто удалить запись со склада - транзитная сделка
-                if (vect_deals.at(3).indexOf("НБ") != 0) {
-                    ExecuteSQL("DELETE FROM storages WHERE main_table_id = " + id_string);
-                    command_store += "operation";
-                }
-                else { //если есть списание со склада  -- операция из перемещени с базы на базу превращается в списание с базы
-                    // две записи по складу (приход и списание) - удаляем приход
-                    ExecuteSQL("DELETE FROM storages WHERE main_table_id = " + id_string + "AND customer =" + vect_deals.at(1));
-                    command_store += "operation";
-                }
-            }
-        }
-        // если нет НБ ни в старом ни в новом - просто поменять клиента
-        else if (old_item.indexOf("НБ") != 0 && new_text.indexOf("НБ") != 0) {
-            command_store += "operation";
-        }
-        // если в старом нет НБ а в новом есть
-        else if (old_item.indexOf("НБ") != 0 && new_text.indexOf("НБ") == 0) {
-
-            if (vect_deals.at(4).indexOf("НБ") != 0) {
-
-            }
-            else {
-                QMessageBox::critical(0, "Ошибка значения",
-                                      "Удалите и создайте новую строку, так менять нельзя", QMessageBox::Cancel);
-                return false;
-            }
-        }
-        else {
-            QMessageBox::critical(0, "Ошибка значения",
-                                  "Неизвестная ошибка", QMessageBox::Cancel);
-            return false;
-        }
-
-        command_store += "'"+ new_text + "' WHERE main_table_id = " + id_string;
-
-    }
-    else if (column == 3) {
-        // если НБ нет в старом но есть в новом
-        // если перемещение со склада на склад - сделать две записи на склад
-        if (old_item.indexOf("НБ") != 0 && new_text.indexOf("НБ") == 0) {
-            if (vect_deals.at(1).indexOf("НБ") == 0) { // был приход на склад, перемещение стало
-                //приход старый обновить operation на НБ_назв_склада
-                ExecuteSQL("UPDATE storages SET operation = НБ_" + vect_deals.at(4));
-                //добавить списание со второго склада
-                QVector <QString> val {vect_deals.at(0), new_text, ("НБ_" + vect_deals.at(4)), };
-                ExecuteSQL("INSERT INTO storages (date_of_deal,  operation, storage_name, tovar_short_name, arrival_doc, "
-                           "departure_litres, plotnost, departure_kg, price_tn, main_table_id) VALUES " + ValuesString(val));
-            }
-        }
-
-        command_store += "operation = '" + QString {new_text + " " + vect_deals.at(4) + "' "};
-        command_store += "WHERE main_table_id = " + id_string;
-    }
-    else if (column == 4) {
-        if (new_text.indexOf("НБ") != 0 && old_item.indexOf("НБ") != 0) {
-            // если не склады - просто поменять operation поставщик+место
-            //узнать поствщик из deals SELECT postavshik FROM deals WHERE id = id_string
-            command_store += "operation ='" + vect_deals.at(3) + " " + new_text + "' WHERE main_table_id = " + id_string;
-        }
-        else {
-            // операция перемещения с базы на базу ??? две операции должны быть
-            //?? пока выдать критикал
-
-            if (vect_deals.at(1).indexOf("НБ") == 0)  {
-                QMessageBox::critical(0, "Ошибка значения",
-                                      "Надо решить эту проблему", QMessageBox::Cancel);
-                return false;
-            }
-        }
-    }
-    else if (column == 5) { // имя товара
-        command_store += vect.at(5) + " = '"+ new_text + "' WHERE main_table_id = " + id_string;
-    }
-    else if (column == 6) {
-        command_store += "departure_litres = '" + new_text + "' WHERE main_table_id = " + id_string;
-    }
-    else if (column == 7) {  // plotnost
-        // заменить запятую на точку
-        command_store += vect.at(7) + " = '"+ new_text + "' WHERE main_table_id = "+ id_string;
-    }
-    else if (column == 8) {
-        command_store += "departure_kg = '" + new_text+"' WHERE main_table_id = " + id_string;
-    }
-    else if (column == 9) {
-        command_store += "price_tn = '"+ new_text + "' WHERE main_table_id = " + id_string;
-    }
-    else { // изменяется колонка, которая не учитываются в складах
-        return false;
-    }
-    //выполнить command_store
-    ExecuteSQL(command_store);
-    return true;
-}
-
-
 
 void MainWindow::on_pushButton_deals_clicked()
 {
@@ -418,12 +304,6 @@ void MainWindow::on_pushButton_deals_clicked()
             SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
             this,
             SLOT(tableSelectionChanged(QItemSelection, QItemSelection)));
-    // connect(
-    //     table->selectionModel(),
-    //     SIGNAL(selectionChanged(const QItemSelection & selected, const QItemSelection & deselected)),
-    //     this,
-    //     SLOT(slotLoadTransaction(const QItemSelection & selected, const QItemSelection & deselected))
-    //     );
 
     UpdateListStorage();
 
@@ -435,18 +315,9 @@ void MainWindow::tableSelectionChanged(QItemSelection, QItemSelection) {
     for (const auto& index : listindexes) {
         index_set_rows.insert(index.row());
     }
-    //std::sort(index_set_rows.begin(), index_set_rows.end());
-    qDebug() << "Row ";
-    for (auto& row_i : index_set_rows) {
-        qDebug() << row_i;
-    }
 }
 
-// void MainWindow::on_tableView_clicked(const QModelIndex &index)
-// {
-//     index_buffer_ = index.row();
 
-// }
 
 void MainWindow::on_pushButton_copy_clicked()
 {
@@ -462,45 +333,7 @@ void MainWindow::on_pushButton_copy_clicked()
 }
 
 
-void MainWindow::on_pushButton_paste_clicked()
-{
-    if (index_set_rows_copy.empty()) {
-        QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужные строки и нажмите Скопировать!");
-        return;
-    }
-    //bool begin = true;
-    for (const auto& row : index_set_rows_copy) {
-        //auto row = index_for_copy_;
-        //нашли ID копируемого объекта
-        //auto id_copy = FindID (index_for_copy->row(), index_for_copy->column()).toString();
-        QMap<QString, QString> date;
-        QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
-                                    "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
 
-
-        // копируем всё кроме id
-        for (auto column = 0; column < model->columnCount()-1; ++column)
-        {
-            date [vect_names[column]] = model->item(row, column)->data(Qt::DisplayRole).toString();
-
-        }
-
-        if (*index_set_rows.begin()  != *index_set_rows_copy.begin()) {
-            if (model->item(*index_set_rows.begin(), 0) != nullptr) { // если ячейка не пустая
-                date["date_of_deal"] = model->item(*index_set_rows.begin(), 0)->data(Qt::DisplayRole).toString();
-            }
-            else {
-                date["date_of_deal"] = GetCurrentDate();
-            }
-        }
-        auto id_num = AddRowSQLString ("deals", date);
-        QString temp ={};
-        StorageAdding(id_num, temp);
-        on_pushButton_deals_clicked();
-        //index_buffer_ = -1; // сброс буфера
-        //begin = false;
-    }
-}
 
 
 void MainWindow::on_pushButton_delete_clicked()
@@ -530,7 +363,7 @@ QString MainWindow::GetCurrentDate () {
     QString date;
     if (auto query = ExecuteSQL (command)) {
         if (query.value().first()) {
-            qDebug() << query.value().value(0).toString();
+            //qDebug() << query.value().value(0).toString();
             date = query.value().value(0).toString();
         }
     }
@@ -539,8 +372,6 @@ QString MainWindow::GetCurrentDate () {
 
 void MainWindow::on_pushButton_new_clicked()
 {
-
-    //QString date = GetCurrentDate ();
     ExecuteSQL (QString{"INSERT INTO deals (date_of_deal) VALUES ('"+ GetCurrentDate () + "')"});
     on_pushButton_deals_clicked();
 }
@@ -548,9 +379,7 @@ void MainWindow::on_pushButton_new_clicked()
 
 void MainWindow::on_action_triggered()
 {
-
     QApplication::quit();
-
 }
 
 
@@ -592,51 +421,100 @@ void MainWindow::ShowStorages(const QString& store) {
         return;
     }
 
+
+    // вывести строку с названием товара
+    // вывести таблицу 1
+    // вывести пустую строку
+     // сделать выборку SQL по наименованию товара
+    QString goods_name_command;
+    QString command_storages;
     QString command;
+    std::set <QString> all_storages;
     if (store != "_Все склады") {
-        command = "SELECT date_of_deal, operation, start_balance, arrival_doc, arrival_fact, departure_litres,plotnost,departure_kg,balance_end,nedoliv,price_tn,rjd_number,storage_name, id, main_table_id, tovar_short_name FROM storages WHERE storage_name = '";
-        command += store + "' ORDER BY date_of_deal";
+        goods_name_command = "SELECT DISTINCT tovar_short_name FROM storages WHERE storage_name = '" + store + "'";
+        all_storages.insert(store);
     } else {
-        command = "SELECT date_of_deal, operation, start_balance, arrival_doc, arrival_fact, departure_litres,plotnost,departure_kg,balance_end,nedoliv,price_tn,rjd_number,storage_name, id, main_table_id, tovar_short_name FROM storages ORDER BY date_of_deal";
+        command_storages = "SELECT DISTINCT storage_name FROM storages";
+        goods_name_command = "SELECT DISTINCT tovar_short_name FROM storages";
+
+        // сделать std::set складов
+
+            auto storages_query = ExecuteSQL(command_storages);
+            while(storages_query.value().next()){
+                all_storages.insert(storages_query.value().value(0).toString());
+            }
+
+    }
+    // сделать std::set наименований товара
+    std::set <QString> goods_name_set;
+    auto query_goods_name = ExecuteSQL(goods_name_command);
+    while(query_goods_name.value().next()){
+        goods_name_set.insert(query_goods_name.value().value(0).toString());
     }
 
-    //QStandardItemModel* model=  new QStandardItemModel(50, 18);
+
+
     model_storages_ =  new QStandardItemModel(10, 16);
     // установка заголовков таблицы
 
     model_storages_->setHeaderData(0, Qt::Horizontal, "Дата");
     model_storages_->setHeaderData(1, Qt::Horizontal, "Операция");
-    model_storages_->setHeaderData(2, Qt::Horizontal, "Сальдо на начало дня");
-    model_storages_->setHeaderData(3, Qt::Horizontal, "Приход по документам");
-    model_storages_->setHeaderData(4, Qt::Horizontal, "Приход фактический");
-    model_storages_->setHeaderData(5, Qt::Horizontal, "Отгружено, литры");
+    model_storages_->setHeaderData(2, Qt::Horizontal, "Сальдо нач");
+    model_storages_->setHeaderData(3, Qt::Horizontal, "Приход док");
+    model_storages_->setHeaderData(4, Qt::Horizontal, "Приход факт");
+    model_storages_->setHeaderData(5, Qt::Horizontal, "Объем,л");
     model_storages_->setHeaderData(6, Qt::Horizontal, "Плотность");
-    model_storages_->setHeaderData(7, Qt::Horizontal, "Отгружено, кг");
-    model_storages_->setHeaderData(8, Qt::Horizontal, "Сальдо на конец дня");
+    model_storages_->setHeaderData(7, Qt::Horizontal, "Масса,кг");
+    model_storages_->setHeaderData(8, Qt::Horizontal, "Сальдо новое");
     model_storages_->setHeaderData(9, Qt::Horizontal, "Недолив, кг");
     model_storages_->setHeaderData(10, Qt::Horizontal, "Цена, р\\тн");
     model_storages_->setHeaderData(11, Qt::Horizontal, "Номер вагона");
-    model_storages_->setHeaderData(12, Qt::Horizontal, "Название Склада");
+    model_storages_->setHeaderData(12, Qt::Horizontal, "Склад");
     model_storages_->setHeaderData(13, Qt::Horizontal, "ID");
-    model_storages_->setHeaderData(14, Qt::Horizontal, "Основание (ID основной таблицы)");
-    model_storages_->setHeaderData(15, Qt::Horizontal, "Название товара");
+    model_storages_->setHeaderData(14, Qt::Horizontal, "ID Сделки");
+    model_storages_->setHeaderData(15, Qt::Horizontal, "Товара");
 
     int row_count = 0;
 
-    auto query_storages = ExecuteSQL(command);
+    for (const auto& storage_one : all_storages) { // перебор складов
 
-    while(query_storages.value().next()){
+        if (row_count != 0) ++row_count; // пропуск строчки
+        model_storages_->setItem(row_count++, 0, new QStandardItem("Склад: " + storage_one)); // название склада
+        ++row_count; // пропуск строчки
 
-        for (auto i = 0; i < 16; ++i) {
-            model_storages_->setItem(row_count, i, new QStandardItem(query_storages.value().value(i).toString()));
+        for (const auto& product : goods_name_set) { // перебор товаров
 
+            //++row_count; // пропуск строчки
+            model_storages_->setItem(row_count++, 0, new QStandardItem("Товар: " + product)); // название склада
+
+
+                command = "SELECT date_of_deal, operation, start_balance, arrival_doc, arrival_fact, departure_litres,plotnost,"
+                          "departure_kg,balance_end,nedoliv,price_tn,rjd_number,storage_name, id, "
+                          "main_table_id, tovar_short_name FROM storages WHERE storage_name = '";
+                command += storage_one + "' AND tovar_short_name = '" + product + "' ORDER BY date_of_deal";
+
+
+            auto query_storages = ExecuteSQL(command);
+
+            while(query_storages.value().next()){
+
+                for (auto i = 0; i < 16; ++i) {
+                    model_storages_->setItem(row_count, i, new QStandardItem(query_storages.value().value(i).toString()));
+
+                }
+                ++row_count;
+            }
         }
-        ++row_count;
+
+        ++row_count; // пропуск строчки
     }
-    ui->tableView->setWordWrap(1); //устанавливает перенос слов
-    ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
+
+
 
     ui->tableView->setModel(model_storages_);
+    ui->tableView->setWordWrap(1); //устанавливает перенос слов
+    ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
+    //ui->tableView->setEditTriggers(QAbstractItemView::NoEditTriggers); // запрет редактирования
 
     //прокрутка вниз влево
     QModelIndex bottomLeft = model_storages_->index(model_storages_-> rowCount() - 1, 0);
@@ -645,4 +523,58 @@ void MainWindow::ShowStorages(const QString& store) {
 }
 
 
+
+
+void MainWindow::on_settings_triggered()
+{
+    SettingWindow setting;
+    setting.setModal(true);
+    setting.exec();
+}
+
+
+void MainWindow::on_exit_triggered()
+{
+
+}
+
+
+void MainWindow::on_pushButton_paste_clicked()
+{
+    if (index_set_rows_copy.empty()) {
+        QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужные строки и нажмите Скопировать!");
+        return;
+    }
+    //bool begin = true;
+    for (const auto& row : index_set_rows_copy) {
+        //auto row = index_for_copy_;
+        //нашли ID копируемого объекта
+        //auto id_copy = FindID (index_for_copy->row(), index_for_copy->column()).toString();
+        QMap<QString, QString> date;
+        QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                                    "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
+
+
+        // копируем всё кроме id
+        for (auto column = 0; column < model->columnCount()-1; ++column)
+        {
+            date [vect_names[column]] = model->item(row, column)->data(Qt::DisplayRole).toString();
+
+        }
+
+        if (*index_set_rows.begin()  != *index_set_rows_copy.begin()) {
+            if (model->item(*index_set_rows.begin(), 0) != nullptr) { // если ячейка не пустая
+                date["date_of_deal"] = model->item(*index_set_rows.begin(), 0)->data(Qt::DisplayRole).toString();
+            }
+            else {
+                date["date_of_deal"] = GetCurrentDate();
+            }
+        }
+        auto id_num = AddRowSQLString ("deals", date);
+        QString temp ={};
+        StorageAdding(id_num, temp);
+        on_pushButton_deals_clicked();
+
+    }
+}
 

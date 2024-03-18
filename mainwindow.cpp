@@ -148,7 +148,26 @@ std::optional<QSqlQuery> MainWindow::ExecuteSQL(const QString& command){
     return query;
 }
 
+double MainWindow::StartingSaldo (const QString& date_of_deal, const QString& id, const QString& tovar_short_name, const QString& storage_name) {
+    QString command = "SELECT date_of_deal, id, balance_end FROM storages "
+                      "WHERE tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name + "' AND date_of_deal <= '";
+    command += date_of_deal + "' ORDER BY date_of_deal DESC, id DESC LIMIT 1";
+    // первая строки и есть искомый пассажир, так как новой строки еще нет в базе
+    QVector <QString> vect;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            for (auto i = 0; i < 3; ++i) {
+                vect.push_back( query.value().value(i).toString() ); // первое value это от optional
+            }
+        }
+    }
+    if (vect.size() > 0) {
+        double res = vect.at(2).toDouble();
+        return res;
+    }
+    return 0;
 
+}
 
 
 bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
@@ -190,8 +209,10 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["storage_name"] = vect_deals.at(1); // заполняем название склада
             command["arrival_doc"] = vect_deals.at(7); // заполняем вес прихода
             command["price_tn"] = vect_deals.at(8); // заполняем цену ЗАКУПКИ
-            command["start_balance"] = "0"; // заполняем начальное сальдо \\\\\\\\\\потом переделать расчет\\\\\\\\\\\\\\
-            //QString sum = QString::number(command["start_balance"].toDouble() + vect_deals.at(7).toDouble());
+            // заполняем начальное сальдо
+            double st_bal = StartingSaldo(command["date_of_deal"], id_string, command["tovar_short_name"], command["storage_name"]);
+            command["start_balance"] = QString::number(st_bal);
+
             command["balance_end"] = QString::number(command["start_balance"].toDouble() + vect_deals.at(7).toDouble()); // заполняем конечное сальдо
 
             if (vect_deals.at(2).indexOf("НБ") == 0) {
@@ -206,8 +227,10 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                 date["departure_kg"] = vect_deals.at(7); // заполняем вес отгруженного
                 date["price_tn"] = vect_deals.at(8); // заполняем цену
                 date["main_table_id"] = vect_deals.at(9); // заполняем ИД основной таблицы
-                date["start_balance"] = "0"; // заполняем начальное сальдо \\\\\\\\\\потом переделать расчет\\\\\\\\\\\\\\
-                //QString sum = QString::number(date["start_balance"].toDouble() - date["departure_kg"].toDouble());
+                // заполняем начальное сальдо
+                double st_bal = StartingSaldo(date["date_of_deal"], id_string, date["tovar_short_name"], date["storage_name"]);
+                date["start_balance"] = QString::number(st_bal);
+
                 date["balance_end"] = QString::number(date["start_balance"].toDouble() - date["departure_kg"].toDouble()); // заполняем конечное сальдо
                 if (!AddRowSQL("storages", date)) {
                     qDebug() << "ERROR AddStorageDate date";
@@ -221,9 +244,10 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["plotnost"] = vect_deals.at(6);
             command["departure_kg"] = vect_deals.at(7);
             command["price_tn"] = vect_deals.at(10); // заполняем цену ПРОДАЖИ В ТОННАХ
-            command["start_balance"] = "0"; // заполняем начальное сальдо \\\\\\\\\\потом переделать расчет\\\\\\\\\\\\\\
-            //QString sum = command["start_balance"].toInt() - command["departure_kg"].toInt();
-            QString sum = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble());
+            double st_bal = StartingSaldo(command["date_of_deal"], id_string, command["tovar_short_name"], command["storage_name"]);
+            command["start_balance"] = QString::number(st_bal);
+
+            //QString sum = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble());
             command["balance_end"] = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble()); // заполняем конечное сальдо
         }
 

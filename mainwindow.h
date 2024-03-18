@@ -71,7 +71,7 @@ private:
     //bool UpdateStorageLine(const QVector <QString>& vect_deals, int column, QString& new_text, const QString& id_string);
     QString GetCurrentDate (); // получить дату Сегодня из SQL
     QSqlDatabase db_;
-
+    double StartingSaldo (const QString& date_of_deal, const QString& id, const QString& tovar_short_name, const QString& storage_name);
     std::set <int> index_set_rows{};
     std::set <int> index_set_rows_copy{};
 

@@ -190,6 +190,9 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["storage_name"] = vect_deals.at(1); // заполняем название склада
             command["arrival_doc"] = vect_deals.at(7); // заполняем вес прихода
             command["price_tn"] = vect_deals.at(8); // заполняем цену ЗАКУПКИ
+            command["start_balance"] = "0"; // заполняем начальное сальдо \\\\\\\\\\потом переделать расчет\\\\\\\\\\\\\\
+            //QString sum = QString::number(command["start_balance"].toDouble() + vect_deals.at(7).toDouble());
+            command["balance_end"] = QString::number(command["start_balance"].toDouble() + vect_deals.at(7).toDouble()); // заполняем конечное сальдо
 
             if (vect_deals.at(2).indexOf("НБ") == 0) {
                 // если перемещение между складами списать со склада донора
@@ -203,7 +206,9 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                 date["departure_kg"] = vect_deals.at(7); // заполняем вес отгруженного
                 date["price_tn"] = vect_deals.at(8); // заполняем цену
                 date["main_table_id"] = vect_deals.at(9); // заполняем ИД основной таблицы
-
+                date["start_balance"] = "0"; // заполняем начальное сальдо \\\\\\\\\\потом переделать расчет\\\\\\\\\\\\\\
+                //QString sum = QString::number(date["start_balance"].toDouble() - date["departure_kg"].toDouble());
+                date["balance_end"] = QString::number(date["start_balance"].toDouble() - date["departure_kg"].toDouble()); // заполняем конечное сальдо
                 if (!AddRowSQL("storages", date)) {
                     qDebug() << "ERROR AddStorageDate date";
                 }
@@ -216,6 +221,10 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["plotnost"] = vect_deals.at(6);
             command["departure_kg"] = vect_deals.at(7);
             command["price_tn"] = vect_deals.at(10); // заполняем цену ПРОДАЖИ В ТОННАХ
+            command["start_balance"] = "0"; // заполняем начальное сальдо \\\\\\\\\\потом переделать расчет\\\\\\\\\\\\\\
+            //QString sum = command["start_balance"].toInt() - command["departure_kg"].toInt();
+            QString sum = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble());
+            command["balance_end"] = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble()); // заполняем конечное сальдо
         }
 
         if (!AddRowSQL("storages", command)) {
@@ -260,7 +269,7 @@ void MainWindow::on_pushButton_deals_clicked()
     if (auto query = ExecuteSQL("SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, "
                             "tovar_short_name, litres, plotnost, ves, price_in_tn, price_out_tn, "
                             "price_out_litres, transp_cost_tn, commission, rentab_tn, profit,manager, "
-                                "id FROM deals ORDER BY date_of_deal")) {
+                                "id FROM deals ORDER BY date_of_deal, id")) {
         int row_count = 0;
         while(query.value().next()){
             for (auto i = 0; i < 18; ++i) {
@@ -491,7 +500,7 @@ void MainWindow::ShowStorages(const QString& store) {
                 command = "SELECT date_of_deal, operation, start_balance, arrival_doc, arrival_fact, departure_litres,plotnost,"
                           "departure_kg,balance_end,nedoliv,price_tn,rjd_number,storage_name, id, "
                           "main_table_id, tovar_short_name FROM storages WHERE storage_name = '";
-                command += storage_one + "' AND tovar_short_name = '" + product + "' ORDER BY date_of_deal";
+                command += storage_one + "' AND tovar_short_name = '" + product + "' ORDER BY date_of_deal, id";
 
 
             auto query_storages = ExecuteSQL(command);

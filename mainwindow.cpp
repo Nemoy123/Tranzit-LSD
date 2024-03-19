@@ -63,9 +63,9 @@ QString ValuesString (const QVector <QString>& vect) {
     return result;
 }
 
-//template <typename T>
+
 QString MainWindow::AddRowSQLString (const QString& storage, const QMap<QString, QString>& date_){
-    //T date_ = std::forward<QMap<QString, QString>>(date);
+
     QString command = "INSERT INTO ";
     command += storage + " (";
 
@@ -148,7 +148,58 @@ std::optional<QSqlQuery> MainWindow::ExecuteSQL(const QString& command){
     return query;
 }
 
-double MainWindow::StartingSaldo (const QString& date_of_deal, const QString& id, const QString& tovar_short_name, const QString& storage_name) {
+void MainWindow::UpdateSQLString (const QString& storage, const QMap<QString, QString>& date){
+
+    QString command = "UPDATE " + storage + " SET ";
+    bool begin = true;
+    for (auto i = date.cbegin(), end = date.cend(); i != end; ++i){
+        if (!begin && i.key() != "id") {
+            command += ", ";
+        }
+        begin = false;
+        if (i.key() != "id") {
+            command += i.key() + " = '" + i.value() + "'";
+        }
+
+    }
+    command += " WHERE id = '" + date.value("id") + "'";
+
+    ExecuteSQL(command);
+}
+
+void MainWindow::ChangeFutureStartSaldo (const QString& id) {
+    QString command = "SELECT date_of_deal, storage_name, tovar_short_name FROM storages WHERE id = '" + id + "'";
+    QMap <QString, QString> result;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            result.insert( "date_of_deal", query.value().value(0).toString() ); // первое value это от optional
+            result.insert( "storage_name", query.value().value(1).toString() );
+            result.insert( "tovar_short_name", query.value().value(2).toString() );
+        }
+    }
+    command = "SELECT id, arrival_doc, departure_kg FROM storages "
+              "WHERE tovar_short_name = '" + result.value("tovar_short_name") + "' AND storage_name = '" + result.value("storage_name")
+              + "' AND date_of_deal > '" + result.value("date_of_deal") + "' AND id != '" + id + "' " +
+              "OR tovar_short_name = '" + result.value("tovar_short_name") +
+              "' AND storage_name = '" + result.value("storage_name") +
+              "' AND date_of_deal = '" + result.value("date_of_deal") + "' AND id > '" + id + "' "
+              "ORDER BY date_of_deal, id";
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            QMap<QString, QString> stroke;
+            stroke["id"] = query.value().value(0).toString();
+            double st_b = StartingSaldo(stroke["id"]) ;
+            stroke["start_balance"] = QString::number( st_b );
+            stroke["arrival_doc"] = query.value().value(1).toString();
+            stroke["departure_kg"] = query.value().value(2).toString();
+            stroke["balance_end"] = QString::number(st_b + stroke["arrival_doc"].toDouble() - stroke["departure_kg"].toDouble());
+            UpdateSQLString ("storages", stroke);
+        }
+    }
+}
+
+
+double MainWindow::StartingSaldo (const QString& date_of_deal, const QString& tovar_short_name, const QString& storage_name) {
     QString command = "SELECT date_of_deal, id, balance_end FROM storages "
                       "WHERE tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name + "' AND date_of_deal <= '";
     command += date_of_deal + "' ORDER BY date_of_deal DESC, id DESC LIMIT 1";
@@ -165,6 +216,38 @@ double MainWindow::StartingSaldo (const QString& date_of_deal, const QString& id
         double res = vect.at(2).toDouble();
         return res;
     }
+    return 0;
+
+}
+
+double MainWindow::StartingSaldo (const QString& storage_id) {
+    QString command = "SELECT date_of_deal, tovar_short_name, storage_name FROM storages "
+                      "WHERE id = '" + storage_id + "'";
+    QMap<QString, QString> date;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            date["date_of_deal"] = query.value().value(0).toString();
+            date["tovar_short_name"] = query.value().value(1).toString();
+            date["storage_name"] = query.value().value(2).toString();
+        }
+    }
+    command = "SELECT balance_end  FROM storages "
+              "WHERE id != '" + storage_id + "' AND tovar_short_name = '" + date["tovar_short_name"]
+              + "' AND storage_name = '" + date["storage_name"] + "' AND date_of_deal < '" + date["date_of_deal"] + "' "
+              "OR tovar_short_name = '" + date["tovar_short_name"] + "' AND storage_name = '" + date["storage_name"] +
+              "' AND date_of_deal = '" + date["date_of_deal"] + "'" +" AND id < '" + storage_id + "' ";
+    command += "ORDER BY date_of_deal DESC, id DESC LIMIT 1";
+    // первая строки и есть искомый пассажир, так как новой строки еще нет в базе
+    QString result;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+
+            result = query.value().value(0).toString(); // первое value это от optional
+            return result.toDouble();
+
+        }
+    }
+
     return 0;
 
 }
@@ -210,7 +293,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["arrival_doc"] = vect_deals.at(7); // заполняем вес прихода
             command["price_tn"] = vect_deals.at(8); // заполняем цену ЗАКУПКИ
             // заполняем начальное сальдо
-            double st_bal = StartingSaldo(command["date_of_deal"], id_string, command["tovar_short_name"], command["storage_name"]);
+            double st_bal = StartingSaldo(command["date_of_deal"], command["tovar_short_name"], command["storage_name"]);
             command["start_balance"] = QString::number(st_bal);
 
             command["balance_end"] = QString::number(command["start_balance"].toDouble() + vect_deals.at(7).toDouble()); // заполняем конечное сальдо
@@ -228,7 +311,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                 date["price_tn"] = vect_deals.at(8); // заполняем цену
                 date["main_table_id"] = vect_deals.at(9); // заполняем ИД основной таблицы
                 // заполняем начальное сальдо
-                double st_bal = StartingSaldo(date["date_of_deal"], id_string, date["tovar_short_name"], date["storage_name"]);
+                double st_bal = StartingSaldo(date["date_of_deal"], date["tovar_short_name"], date["storage_name"]);
                 date["start_balance"] = QString::number(st_bal);
 
                 date["balance_end"] = QString::number(date["start_balance"].toDouble() - date["departure_kg"].toDouble()); // заполняем конечное сальдо
@@ -244,17 +327,17 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["plotnost"] = vect_deals.at(6);
             command["departure_kg"] = vect_deals.at(7);
             command["price_tn"] = vect_deals.at(10); // заполняем цену ПРОДАЖИ В ТОННАХ
-            double st_bal = StartingSaldo(command["date_of_deal"], id_string, command["tovar_short_name"], command["storage_name"]);
+            double st_bal = StartingSaldo(command["date_of_deal"], command["tovar_short_name"], command["storage_name"]);
             command["start_balance"] = QString::number(st_bal);
 
             //QString sum = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble());
             command["balance_end"] = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble()); // заполняем конечное сальдо
         }
-
-        if (!AddRowSQL("storages", command)) {
+        QString id_new = AddRowSQLString ("storages", command);
+        if (id_new == "-1") {
             qDebug() << "ERROR AddStorageDate command";
         }
-
+        ChangeFutureStartSaldo(id_new);
         UpdateListStorage();
 
         return true;

@@ -103,9 +103,9 @@ bool MainWindow::AddRowSQL (const QString& storage, const QMap<QString, QString>
     return ( AddRowSQLString (storage, date_) != "-1");
 }
 
-bool MainWindow::DeleteFromSQL (const QString& storage, const QString& id) {
+bool MainWindow::DeleteFromSQL (const QString& storage, const QString& main_table_id) {
     QString command = "DELETE FROM ";
-    command += storage + " WHERE main_table_id = '" + id + "'";
+    command += storage + " WHERE main_table_id = '" + main_table_id + "'";
     auto query = ExecuteSQL(command);
     if (query->isActive()) { // isActive() вернет true если запрос SQL успешен
         return true;
@@ -177,12 +177,18 @@ void MainWindow::ChangeFutureStartSaldo (const QString& id) {
             result.insert( "tovar_short_name", query.value().value(2).toString() );
         }
     }
-    command = "SELECT id, arrival_doc, departure_kg FROM storages "
-              "WHERE tovar_short_name = '" + result.value("tovar_short_name") + "' AND storage_name = '" + result.value("storage_name")
-              + "' AND date_of_deal > '" + result.value("date_of_deal") + "' AND id != '" + id + "' " +
-              "OR tovar_short_name = '" + result.value("tovar_short_name") +
-              "' AND storage_name = '" + result.value("storage_name") +
-              "' AND date_of_deal = '" + result.value("date_of_deal") + "' AND id > '" + id + "' "
+    ChangeFutureStartSaldo(id, result.value("date_of_deal"), result.value("storage_name"), result.value("tovar_short_name"));
+
+}
+
+void MainWindow::ChangeFutureStartSaldo (const QString& id, const QString& date_of_deal,const QString& storage_name, const QString& tovar_short_name) {
+
+    QString command = "SELECT id, arrival_doc, departure_kg FROM storages "
+              "WHERE tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name
+              + "' AND date_of_deal > '" + date_of_deal + "' AND id != '" + id + "' " +
+              "OR tovar_short_name = '" + tovar_short_name +
+              "' AND storage_name = '" + storage_name +
+              "' AND date_of_deal = '" + date_of_deal + "' AND id > '" + id + "' "
               "ORDER BY date_of_deal, id";
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
@@ -197,7 +203,6 @@ void MainWindow::ChangeFutureStartSaldo (const QString& id) {
         }
     }
 }
-
 
 double MainWindow::StartingSaldo (const QString& date_of_deal, const QString& tovar_short_name, const QString& storage_name) {
     QString command = "SELECT date_of_deal, id, balance_end FROM storages "
@@ -218,6 +223,33 @@ double MainWindow::StartingSaldo (const QString& date_of_deal, const QString& to
     }
     return 0;
 
+}
+
+QString MainWindow::FindPrevIdFromStorage (const QString& storage_id) {
+    QString command = "SELECT date_of_deal, tovar_short_name, storage_name FROM storages "
+                      "WHERE id = '" + storage_id + "'";
+    QMap<QString, QString> date;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            date["date_of_deal"] = query.value().value(0).toString();
+            date["tovar_short_name"] = query.value().value(1).toString();
+            date["storage_name"] = query.value().value(2).toString();
+        }
+    }
+    command = "SELECT id  FROM storages "
+              "WHERE id != '" + storage_id + "' AND tovar_short_name = '" + date["tovar_short_name"]
+              + "' AND storage_name = '" + date["storage_name"] + "' AND date_of_deal < '" + date["date_of_deal"] + "' "
+              "OR tovar_short_name = '" + date["tovar_short_name"] + "' AND storage_name = '" + date["storage_name"] +
+              "' AND date_of_deal = '" + date["date_of_deal"] + "'" +" AND id < '" + storage_id + "' ";
+    command += "ORDER BY date_of_deal DESC, id DESC LIMIT 1";
+    QString result;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            result = query.value().value(0).toString(); // первое value это от optional
+            return result;
+        }
+    }
+    return "-1";
 }
 
 double MainWindow::StartingSaldo (const QString& storage_id) {
@@ -458,19 +490,44 @@ void MainWindow::on_pushButton_delete_clicked()
         QMessageBox::critical(this, "НЕ УДАЛЕНО", "Выделите любую ячейку в удаляемой строке и нажмите УДАЛИТЬ!");
         return;
     }
+
     for (auto& row : index_set_rows) {
-        auto id = FindID (row, 17).toString();
-        QString command = "DELETE FROM deals WHERE id = ";
-        command += "'" + id + "'";
+        auto main_table_id = FindID (row, 17).toString();
+        //найти предыдущий id ;
+        QString command = "SELECT id FROM storages WHERE main_table_id = '" + main_table_id + "'";
+
+        QVector<QString> vect_id; // нашли id склада привязанные к id сделок
+        if (auto query = ExecuteSQL(command)) {
+            while(query.value().next()) {
+                vect_id.push_back( query.value().value(0).toString() ); // первое value это от optional
+            }
+        }
+        // найти более раннее id для обновления сальдо
+        QVector<QString> vect_prev_id;
+        for (const auto& id_deleted: vect_id) {
+            vect_prev_id.push_back( FindPrevIdFromStorage(id_deleted) );
+        }
+        // удаляем
+        command = "DELETE FROM deals WHERE id = ";
+        command += "'" + main_table_id + "'";
         QSqlQuery change_query = QSqlQuery(db_);
         if (!change_query.exec( command )) {
             qDebug() << change_query.lastError().databaseText();
             qDebug() << change_query.lastError().driverText();
             return;
         }
+
         //Удалить старые данные из storages привязанные к ID основной таблицы
-        DeleteFromSQL("storages", id);
+        DeleteFromSQL("storages", main_table_id);
+
+        // обновляем сальдо у поздних
+        for (const auto& id_upd : vect_prev_id) {
+           ChangeFutureStartSaldo (id_upd);
+        }
+
+
     }
+
     on_pushButton_deals_clicked();
 }
 

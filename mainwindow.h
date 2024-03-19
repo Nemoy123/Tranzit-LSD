@@ -66,7 +66,7 @@ private:
     std::optional<QSqlQuery> ExecuteSQL(const QString& command);
     QString  AddRowSQLString (const QString& storage, const QMap<QString, QString>& date_);
     bool AddRowSQL (const QString& storage, const QMap<QString, QString>& date_);
-    bool DeleteFromSQL (const QString& storage, const QString& id);
+    bool DeleteFromSQL (const QString& storage, const QString& main_table_id);
     bool StorageAdding(const QString& id_string, QString& new_text);
     //bool UpdateStorageLine(const QVector <QString>& vect_deals, int column, QString& new_text, const QString& id_string);
     QString GetCurrentDate (); // получить дату Сегодня из SQL
@@ -74,7 +74,9 @@ private:
     double StartingSaldo (const QString& date_of_deal, const QString& tovar_short_name, const QString& storage_name);
     double StartingSaldo (const QString& storage_id);
     void ChangeFutureStartSaldo (const QString& id);
+    void ChangeFutureStartSaldo (const QString& id, const QString& date_of_deal,const QString& storage_name, const QString& tovar_short_name);
     void UpdateSQLString (const QString& storage, const QMap<QString, QString>& date);
+    QString FindPrevIdFromStorage (const QString& storage_id);
     std::set <int> index_set_rows{};
     std::set <int> index_set_rows_copy{};
 

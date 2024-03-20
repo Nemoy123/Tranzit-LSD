@@ -77,6 +77,7 @@ private:
     void ChangeFutureStartSaldo (const QString& id, const QString& date_of_deal,const QString& storage_name, const QString& tovar_short_name);
     void UpdateSQLString (const QString& storage, const QMap<QString, QString>& date);
     QString FindPrevIdFromStorage (const QString& storage_id);
+    QString FindNextOrPrevIdFromStorage (const QString& storage_id, const QString& operation);
     std::set <int> index_set_rows{};
     std::set <int> index_set_rows_copy{};
 

@@ -155,9 +155,11 @@ void MainWindow::UpdateSQLString (const QString& storage, const QMap<QString, QS
     for (auto i = date.cbegin(), end = date.cend(); i != end; ++i){
         if (!begin && i.key() != "id") {
             command += ", ";
+
         }
-        begin = false;
+
         if (i.key() != "id") {
+            begin = false;
             command += i.key() + " = '" + i.value() + "'";
         }
 
@@ -223,6 +225,54 @@ double MainWindow::StartingSaldo (const QString& date_of_deal, const QString& to
     }
     return 0;
 
+}
+QString MainWindow::FindNextOrPrevIdFromStorage (const QString& storage_id, const QString& operation) {
+    if (operation != "next" && operation != "prev") {
+        return "-1";
+    }
+    QString command = "SELECT date_of_deal, tovar_short_name, storage_name FROM storages "
+                      "WHERE id = '" + storage_id + "'";
+    QMap<QString, QString> date;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            date["date_of_deal"] = query.value().value(0).toString();
+            date["tovar_short_name"] = query.value().value(1).toString();
+            date["storage_name"] = query.value().value(2).toString();
+        }
+    }
+
+    command = "SELECT id  FROM storages "
+              "WHERE id != '" + storage_id + "' AND tovar_short_name = '" + date["tovar_short_name"]
+                  + "' AND storage_name = '" + date["storage_name"] + "' AND date_of_deal";
+    if (operation == "next") {
+        command += " > ";
+    }
+    if (operation == "prev") {
+        command += " < ";
+    }
+    command += "'" + date["date_of_deal"] + "' "
+              "OR tovar_short_name = '" + date["tovar_short_name"] + "' AND storage_name = '" + date["storage_name"] +
+               "' AND date_of_deal = '" + date["date_of_deal"] + "'" +" AND id";
+    if (operation == "next") {
+        command += " > ";
+        command += "'" + storage_id + "' ";
+        command += "ORDER BY date_of_deal ASC, id ASC LIMIT 1";
+
+    }
+    if (operation == "prev") {
+        command += " < ";
+        command += "'" + storage_id + "' ";
+        command += "ORDER BY date_of_deal DESC, id DESC LIMIT 1";
+    }
+
+    QString result;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            result = query.value().value(0).toString(); // первое value это от optional
+            return result;
+        }
+    }
+    return "-1";
 }
 
 QString MainWindow::FindPrevIdFromStorage (const QString& storage_id) {
@@ -502,11 +552,23 @@ void MainWindow::on_pushButton_delete_clicked()
                 vect_id.push_back( query.value().value(0).toString() ); // первое value это от optional
             }
         }
-        // найти более раннее id для обновления сальдо
+        // найти более раннее id для обновления сальдо ??? более позднее id ???
         QVector<QString> vect_prev_id;
         for (const auto& id_deleted: vect_id) {
-            vect_prev_id.push_back( FindPrevIdFromStorage(id_deleted) );
+            QString temp = FindNextOrPrevIdFromStorage(id_deleted, "prev");
+            if (temp == "-1") {
+                temp = FindNextOrPrevIdFromStorage(id_deleted, "next");
+                // стартовый баланс начать с нуля
+                QMap<QString, QString> date;
+                date.insert("id", temp);
+                date.insert("start_balance", "0");
+                UpdateSQLString ("storages", date);
+
+               // qDebug() << "Error on_pushButton_delete_clicked";
+            }
+            vect_prev_id.push_back( temp );
         }
+
         // удаляем
         command = "DELETE FROM deals WHERE id = ";
         command += "'" + main_table_id + "'";
@@ -521,8 +583,11 @@ void MainWindow::on_pushButton_delete_clicked()
         DeleteFromSQL("storages", main_table_id);
 
         // обновляем сальдо у поздних
+
         for (const auto& id_upd : vect_prev_id) {
-           ChangeFutureStartSaldo (id_upd);
+            if (id_upd != "-1") {
+                ChangeFutureStartSaldo (id_upd);
+            }
         }
 
 

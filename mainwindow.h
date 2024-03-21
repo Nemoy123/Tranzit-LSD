@@ -10,6 +10,8 @@
 #include <QListWidgetItem>
 #include <optional>
 #include <set>
+#include "settingwindow.h"
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -24,6 +26,10 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+public slots:
+
+    void ParsingCSV(const std::ifstream& file);
 
 private slots:
     void on_pushButton_deals_clicked();
@@ -56,6 +62,8 @@ private slots:
 
     void on_pushButton_paste_clicked();
 
+
+
 private:
     QVariant FindID (int row, int column);
     void UpdateListStorage();
@@ -78,8 +86,10 @@ private:
     void UpdateSQLString (const QString& storage, const QMap<QString, QString>& date);
     QString FindPrevIdFromStorage (const QString& storage_id);
     QString FindNextOrPrevIdFromStorage (const QString& storage_id, const QString& operation);
+
     std::set <int> index_set_rows{};
     std::set <int> index_set_rows_copy{};
+    SettingWindow* set_window;
 
 };
 #endif // MAINWINDOW_H

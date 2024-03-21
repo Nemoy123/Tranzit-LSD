@@ -823,9 +823,19 @@ void MainWindow::ShowStorages(const QString& store) {
 
 void MainWindow::on_settings_triggered()
 {
-    SettingWindow setting;
-    setting.setModal(true);
-    setting.exec();
+    //setting_window = new Ui::SettingWindow;
+
+    // SettingWindow setting(this);
+    // setting.setModal(true);
+    // setting.exec();
+    set_window = new SettingWindow;
+    set_window->setModal(true);
+    if (!(connect ( set_window, &SettingWindow::signal_importcsv, this, &MainWindow::ParsingCSV ) ) ) {
+        qDebug() << "connect false";
+    }
+    set_window->exec();
+
+
 }
 
 
@@ -872,5 +882,9 @@ void MainWindow::on_pushButton_paste_clicked()
         on_pushButton_deals_clicked();
 
     }
+}
+
+void MainWindow::ParsingCSV (const std::ifstream& file) {
+    qDebug() << "ParsingCSV";
 }
 

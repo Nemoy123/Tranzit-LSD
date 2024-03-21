@@ -334,6 +334,24 @@ double MainWindow::StartingSaldo (const QString& storage_id) {
 
 }
 
+void CheckLitresPlotnost(QString& litres, QString& plotnost, QString& mass){
+    double litr = litres.toDouble();
+    double plot = plotnost.toDouble();
+    double mas = mass.toDouble();
+    if (litr != 0 && plot == 0 && mas != 0) {
+        plot = mas/litr;
+        plotnost = QString::number(plot);
+    }
+    else if (litr != 0 && plot != 0 && mas == 0) {
+        mas = litr * plot;
+        mass = QString::number(mas);
+    }
+    else if (litr == 0 && plot != 0 && mas != 0) {
+        litr = mas / plot;
+        litres = QString::number(litr);
+    }
+
+}
 
 bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     // проверить надо ли добавлять (поиск НБ в клиенте и в поставщике)
@@ -346,13 +364,13 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
         //command_store = "INSERT INTO storages (date_of_deal,  operation, storage_name, tovar_short_name, arrival_doc, departure_litres, plotnost, departure_kg, price_tn, main_table_id) VALUES ";
 
         // получить нужные данные из deals
-        QString command_to_deals = "SELECT date_of_deal, customer, postavshik, neftebaza, tovar_short_name, litres, plotnost, ves, price_in_tn, id, price_out_tn FROM deals WHERE id =";
+        QString command_to_deals = "SELECT date_of_deal, customer, postavshik, neftebaza, tovar_short_name, litres, plotnost, ves, price_in_tn, id, price_out_tn, price_out_litres FROM deals WHERE id =";
         command_to_deals += id_string;
 
         QVector<QString> vect_deals;
         if (auto query = ExecuteSQL(command_to_deals)) {
             while(query.value().next()) {
-                for (auto i = 0; i < 11; ++i) {
+                for (auto i = 0; i < 12; ++i) {
                     vect_deals.push_back( query.value().value(i).toString() ); // первое value это от optional
                 }
             }
@@ -405,10 +423,12 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
 
             command["operation"] = vect_deals.at(1); // куда списали
             command["storage_name"] = "НБ_"+vect_deals.at(3); // заполняем название склада
+
             command["departure_litres"] = vect_deals.at(5);
             command["plotnost"] = vect_deals.at(6);
             command["departure_kg"] = vect_deals.at(7);
             command["price_tn"] = vect_deals.at(10); // заполняем цену ПРОДАЖИ В ТОННАХ
+
             double st_bal = StartingSaldo(command["date_of_deal"], command["tovar_short_name"], command["storage_name"]);
             command["start_balance"] = QString::number(st_bal);
 
@@ -448,7 +468,7 @@ void MainWindow::on_pushButton_deals_clicked()
     model->setHeaderData(9, Qt::Horizontal, "Цена входа, р\\тн");
     model->setHeaderData(10, Qt::Horizontal, "Цена продажи, р\\тн");
     model->setHeaderData(11, Qt::Horizontal, "Цена продажи, р\\л");
-    model->setHeaderData(12, Qt::Horizontal, "Трансп затраты, р\\тн");
+    model->setHeaderData(12, Qt::Horizontal, "Трансп затраты, за рейс");
     model->setHeaderData(13, Qt::Horizontal, "Комиссии");
     model->setHeaderData(14, Qt::Horizontal, "Прибыль на тонну");
     model->setHeaderData(15, Qt::Horizontal, "Прибыль сумма");
@@ -480,10 +500,48 @@ void MainWindow::on_pushButton_deals_clicked()
                         QString id_string = FindID(row, id_number_column).toString();
 
                         QString new_text = item->text();
+                        if (vect.value(column) == "plotnost" || vect.value(column) == "price_out_litres") {
+                            new_text.replace(',', '.'); // убрать запятую если плотность или цена в литрах
+                        }
+                        if (vect.value(column) == "price_out_litres") {
+                            double plot = model->item(row, 7)->text().toDouble(); // если плотность не равна 0
+                            if (plot != 0) {
+                                double price = model->item(row, 10)->text().toDouble();
+                                double new_price = (new_text.toDouble()/plot) * 1000;
+                                // округлить до целого
+                                new_price = round(new_price*100)/100;
+                                QString pr_tn =  {"UPDATE " + table_name + " SET price_out_tn = '" + QString::number(new_price) + "' WHERE id = " + id_string};
+                                ExecuteSQL(pr_tn);
+                            }
+                        }
                         if (vect.value(column) == "plotnost") {
-                            new_text.replace(',', '.'); // убрать запятую если плотность
+                            double price_lt = model->item(row, 11)->text().toDouble(); // если цена за литр не равна 0
+                            if (price_lt != 0) {
+                                double price_tn = price_lt / new_text.toDouble() * 1000;
+                                price_tn = round(price_tn*100)/100;
+                                QString pr_tn =  {"UPDATE " + table_name + " SET price_out_tn = '" + QString::number(price_tn) + "' WHERE id = " + id_string};
+                                ExecuteSQL(pr_tn);
+                            }
+
                         }
 
+                        if (vect.value(column) == "litres" || vect.value(column) == "plotnost" || vect.value(column) == "ves" ||
+                            vect.value(column) == "price_in_tn" || vect.value(column) == "price_out_tn" || vect.value(column) == "price_out_litres" ||
+                            vect.value(column) == "transp_cost_tn" || vect.value(column) == "commission" ) {
+                            double mass = model->item(row, 8)->text().toDouble(); // вес
+                            if (mass != 0) { // проверить деление на ноль
+                            double price_tn_prod = model->item(row, 10)->text().toDouble(); // цена продажи тонна
+                            double price_tn_vhod = model->item(row, 9)->text().toDouble(); // цена покупки тонна
+
+                            double commission = model->item(row, 13)->text().toDouble(); // комиссионные всего, не за тонну
+                            double transport = model->item(row, 12)->text().toDouble(); // транспорт за рейс
+                            double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
+                            rentab = round(rentab*100)/100;
+                            double summ_rentab = rentab * (mass/1000);
+                            QString ren =  {"UPDATE " + table_name + " SET rentab_tn = '" + QString::number(rentab) + "', profit = '" + QString::number(summ_rentab) + "' WHERE id = " + id_string};
+                            ExecuteSQL(ren);
+                            }
+                        }
                         QString qout =  {"UPDATE " + table_name + " SET " + vect.value(column) + " = '" + new_text + "' WHERE id = " + id_string};
                         ExecuteSQL(qout);
                         StorageAdding(id_string, new_text);

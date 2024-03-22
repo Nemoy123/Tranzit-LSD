@@ -15,7 +15,8 @@
 #include <QVariant>
 #include <QMap>
 #include "settingwindow.h"
-#include <fstream>
+#include <QFile>
+#include <QTextStream>
 
 void MainWindow::UpdateListStorage() {
     ui->listWidget->clear();
@@ -63,9 +64,37 @@ QString ValuesString (const QVector <QString>& vect) {
     return result;
 }
 
+QMap<QString, QString>& CheckDealsParam (QMap<QString, QString>& date) {
+    if (date.contains("price_out_litres") && date.contains("plotnost")) {
+        double price_lt =0;
+        price_lt = date.value("price_out_litres").toDouble(); // если цена за литр не равна 0
+        if (price_lt != 0 && date.value("plotnost").toDouble() != 0) {
+            double price_tn = price_lt / date.value("plotnost").toDouble() * 1000;
+            price_tn = round(price_tn*100)/100;
+            date["price_out_tn"] = QString::number(price_tn);
+        }
+    }
+    double mass = 0;
+    mass = date.value("ves").toDouble(); // вес
+    if (mass != 0) { // проверить деление на ноль
+        double price_tn_prod = date.value("price_out_tn").toDouble(); // цена продажи тонна
+        double price_tn_vhod = date.value("price_in_tn").toDouble(); // цена покупки тонна
 
-QString MainWindow::AddRowSQLString (const QString& storage, const QMap<QString, QString>& date_){
+        double commission = date.value("comission").toDouble(); // комиссионные всего, не за тонну
+        double transport = date.value("transp_cost_tn").toDouble(); // транспорт за рейс
+        double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
+        rentab = round(rentab*100)/100;
+        double summ_rentab = rentab * (mass/1000);
+        date["rentab_tn"] = QString::number(rentab);
+        date["profit"] = QString::number(summ_rentab);
+    }
+    return date;
+}
 
+QString MainWindow::AddRowSQLString (const QString& storage, QMap<QString, QString>& date_){
+    if (storage == "deals") {
+        date_ = CheckDealsParam (date_);
+    }
     QString command = "INSERT INTO ";
     command += storage + " (";
 
@@ -88,6 +117,9 @@ QString MainWindow::AddRowSQLString (const QString& storage, const QMap<QString,
     key_stroke += ")";
     value_stroke += ")";
     command += key_stroke +" VALUES ("+ value_stroke + " RETURNING id";
+
+
+
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
             return query.value().value(0).toString();
@@ -98,7 +130,7 @@ QString MainWindow::AddRowSQLString (const QString& storage, const QMap<QString,
 
 }
 
-bool MainWindow::AddRowSQL (const QString& storage, const QMap<QString, QString>& date_) {
+bool MainWindow::AddRowSQL (const QString& storage, QMap<QString, QString>& date_) {
 
     return ( AddRowSQLString (storage, date_) != "-1");
 }
@@ -353,6 +385,47 @@ void CheckLitresPlotnost(QString& litres, QString& plotnost, QString& mass){
 
 }
 
+void MainWindow::UpdateAverageForLater (const QString& id) {
+    QString command = "SELECT date_of_deal, storage_name, tovar_short_name FROM storages WHERE id = '" + id + "'";
+    QMap <QString, QString> result;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            result.insert( "date_of_deal", query.value().value(0).toString() ); // первое value это от optional
+            result.insert( "storage_name", query.value().value(1).toString() );
+            result.insert( "tovar_short_name", query.value().value(2).toString() );
+        }
+    }
+    command = "SELECT id FROM storages "
+                      "WHERE tovar_short_name = '" + result["tovar_short_name"] + "' AND storage_name = '" + result["storage_name"]
+                      + "' AND date_of_deal > '" + result["date_of_deal"] + "' AND id != '" + id + "' " +
+                      "OR tovar_short_name = '" + result["tovar_short_name"] +
+                      "' AND storage_name = '" + result["storage_name"] +
+                      "' AND date_of_deal = '" + result["date_of_deal"] + "' AND id > '" + id + "' "
+                     "ORDER BY date_of_deal, id";
+    QVector <QString> vect;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            vect.push_back( query.value().value(0).toString() ); // первое value это от optional
+        }
+    }
+    for (const auto& id_change: vect) {
+        auto new_price_for_deal = AveragePriceIn(id_change);
+        // найти id main_table и внести в deals
+
+        command = "SELECT DISTINCT main_table_id FROM storages WHERE id = '" + id_change + "'";
+        if (auto query = ExecuteSQL(command)) {
+            while(query.value().next()) {
+               QString id_for_change_in_deals = query.value().value(0).toString() ;
+                QMap<QString, QString> temp;
+                temp["id"] = id_for_change_in_deals;
+                temp["price_in_tn"] = QString::number(new_price_for_deal);
+                UpdateSQLString ("deals", temp);
+            }
+        }
+    }
+
+}
+
 bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     // проверить надо ли добавлять (поиск НБ в клиенте и в поставщике)
     auto query_test = ExecuteSQL(QString{"SELECT customer, postavshik FROM deals WHERE id =" + id_string});
@@ -389,7 +462,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
 
             command["operation"] = vect_deals.at(1); // перемещаем графу поставщик + нефтебаза
             //new_text.simplified().replace(char{32}, char{95});
-            command["storage_name"] = vect_deals.at(1); // заполняем название склада
+            command["storage_name"] = vect_deals.at(1).simplified(); // заполняем название склада
             command["arrival_doc"] = vect_deals.at(7); // заполняем вес прихода
             command["price_tn"] = vect_deals.at(8); // заполняем цену ЗАКУПКИ
             // заполняем начальное сальдо
@@ -403,7 +476,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                 QMap<QString, QString> date;
                 date["date_of_deal"] = vect_deals.at(0); // дата
                 date["operation"] = vect_deals.at(1); // на какой склад отправляем
-                date["storage_name"] = vect_deals.at(2) + "_" + vect_deals.at(3); // название склада с кот списываем
+                date["storage_name"] = vect_deals.at(2).simplified() + "_" + vect_deals.at(3).simplified(); // название склада с кот списываем
                 date["tovar_short_name"] = vect_deals.at(4); // название товара
                 date["departure_litres"] = vect_deals.at(5); // заполняем литры
                 date["plotnost"] = vect_deals.at(6); // заполняем плотность
@@ -420,31 +493,27 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                 }
             }
             id_new = AddRowSQLString ("storages", command);
+            UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
 
 
         } else { // списание со склада клиенту
 
             command["operation"] = vect_deals.at(1); // куда списали
-            command["storage_name"] = "НБ_"+vect_deals.at(3); // заполняем название склада
-
+            command["storage_name"] = "НБ_"+vect_deals.at(3).simplified(); // заполняем название склада
             command["departure_litres"] = vect_deals.at(5);
             command["plotnost"] = vect_deals.at(6);
             command["departure_kg"] = vect_deals.at(7);
 
             double st_bal = StartingSaldo(command["date_of_deal"], command["tovar_short_name"], command["storage_name"]);
             command["start_balance"] = QString::number(st_bal);
-
-            //QString sum = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble());
             command["balance_end"] = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble()); // заполняем конечное сальдо
-            //command["price_tn"] = AveragePriceIn(command["date_of_deal"], command["storage_name"], command["tovar_short_name"], command["start_balance"], ).toString(); // заполняем цену ПРОДАЖИ В ТОННАХ
+            command["price_tn"] = vect_deals.at(10);; // заполняем цену ПРОДАЖИ В ТОННАХ
 
             id_new = AddRowSQLString ("storages", command);
+
             command.clear();
-            command["price_tn"] = QString::number(AveragePriceIn(id_new));
-            command["id"] = id_new;
-            UpdateSQLString ("storages", command);
             command["id"] = id_string;
-            command["price_in_tn"] = command["price_tn"];
+            command["price_in_tn"] = QString::number(AveragePriceIn(id_new));;
             command.remove("price_tn");
             UpdateSQLString ("deals", command);
         }
@@ -565,10 +634,12 @@ void MainWindow::on_pushButton_deals_clicked()
     ui->tableView->setWordWrap(1);
     ui->tableView->setModel(model); //устанавливает перенос слов
     ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
-
-    //прокрутка вниз влево
-    QModelIndex bottomLeft = model->index(model-> rowCount() - 1, 0);
-    ui->tableView->scrollTo(bottomLeft);
+    if (first_launch) {
+        //прокрутка вниз влево
+        QModelIndex bottomLeft = model->index(model-> rowCount() - 1, 0);
+        ui->tableView->scrollTo(bottomLeft);
+        first_launch = false;
+    }
     connect(ui->tableView->selectionModel(),
             SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
             this,
@@ -893,32 +964,22 @@ void MainWindow::on_pushButton_paste_clicked()
     }
 }
 
-void MainWindow::ParsingCSV (const std::ifstream& file) {
-    qDebug() << "ParsingCSV";
-    if (!file.is_open()) {
 
-        QMessageBox::critical(0, "Cannot open file", "Сигнал слот не работает", QMessageBox::Cancel);
-
-        return;
-    }
-    else {
-        qDebug() << "Сигнал слот работает";
-    }
-}
 
 double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& storage_name,const QString& tovar_short_name,const QString& start_balance, const QString& id_storage) {
 
 
     double ves = start_balance.toDouble();
+    if (ves <= 0) {return 0;}
     int new_price = 0;
-
+    int counter = 1;
     while(true) {
-        int counter = 1;
-        int money_in_store = 0;
-        int total_weight = 0;
-        QString command = "SELECT arrival_doc, price_tn  FROM storages WHERE tovar_short_name = '" + tovar_short_name
+
+        double money_in_store = 0;
+        double total_weight = 0;
+        QString command = "SELECT arrival_doc, price_tn  FROM storages WHERE arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
                   + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
-                  "OR tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
+                  "OR arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
                   "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' ";
         command += "ORDER BY date_of_deal DESC, id DESC LIMIT " + QString::number(counter * 10);
 
@@ -947,6 +1008,7 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
         if (ves == 0) {
             if (total_weight == 0) {
                 qDebug() << "Ахтунг, деление на ноль";
+                return 0;
             }
             double price_for_tn = money_in_store / total_weight;
             return price_for_tn;
@@ -954,7 +1016,10 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
         else {
             ++counter;
         }
-
+        if (counter > 10000) {
+            qDebug() << "Ахтунг, бесконечный цикл";
+            return 0;
+        }
     }
 }
 
@@ -971,4 +1036,58 @@ double MainWindow::AveragePriceIn (const QString& id_storage) {
         }
     }
     return AveragePriceIn (date.value("date_of_deal"), date.value("storage_name"),date.value("tovar_short_name"),date.value("start_balance"), id_storage);
+}
+
+bool Parsing_line(QString&& line, std::vector<QMap<QString, QString>>& vect) {
+
+    try
+    {
+        line.replace(',', '.');
+        QStringList list = line.split(";");
+        QMap<QString, QString> date {};
+        std::vector<QString> names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza",
+                                   "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                                   "price_out_tn", "price_out_litres", "transp_cost_tn", "commission"};
+        for (int i{}; i < list.length(); i++) {
+            date[names[i]] = list[i];
+        }
+        vect.push_back(date);
+
+    } catch (...) {
+        return false;
+    }
+    return true;
+}
+
+void MainWindow::ParsingCSV (QFile& file) {
+    qDebug() << "ParsingCSV";
+
+    QMap<QString, QString> date;
+    QString stroke;
+    std::vector<QMap<QString, QString>> vect;
+
+    QTextStream in(&file);
+    int counter = 1;
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+
+        if (!Parsing_line(std::move(line), vect)) {
+            qDebug() << "Ошибка в строке " + QString::number(counter);
+            QMessageBox::critical(0, "Error in file", "Ошибка в строке " + QString::number(counter), QMessageBox::Cancel);
+            break;
+        }
+
+        ++counter;
+    }
+    counter = 1;
+    for (auto& item :vect) {
+        auto id = AddRowSQLString("deals", item);
+        QString val{};
+        StorageAdding(id, val);
+        qDebug() <<"Строка "+ QString::number(counter);
+        ++counter;
+    }
+    qDebug() << "ParsingCSV end GOOD";
+
+    //AddRowSQL (const QString& storage, const QMap<QString, QString>& date_)
 }

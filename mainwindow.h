@@ -11,6 +11,7 @@
 #include <optional>
 #include <set>
 #include "settingwindow.h"
+#include <QFile>
 
 
 QT_BEGIN_NAMESPACE
@@ -29,7 +30,7 @@ public:
 
 public slots:
 
-    void ParsingCSV(const std::ifstream& file);
+    void ParsingCSV(QFile& file);
 
 private slots:
     void on_pushButton_deals_clicked();
@@ -72,11 +73,10 @@ private:
     QStandardItemModel* model;
     QStandardItemModel* model_storages_;
     std::optional<QSqlQuery> ExecuteSQL(const QString& command);
-    QString  AddRowSQLString (const QString& storage, const QMap<QString, QString>& date_);
-    bool AddRowSQL (const QString& storage, const QMap<QString, QString>& date_);
+    QString  AddRowSQLString (const QString& storage, QMap<QString, QString>& date_);
+    bool AddRowSQL (const QString& storage, QMap<QString, QString>& date_);
     bool DeleteFromSQL (const QString& storage, const QString& main_table_id);
     bool StorageAdding(const QString& id_string, QString& new_text);
-    //bool UpdateStorageLine(const QVector <QString>& vect_deals, int column, QString& new_text, const QString& id_string);
     QString GetCurrentDate (); // получить дату Сегодня из SQL
     QSqlDatabase db_;
     double StartingSaldo (const QString& date_of_deal, const QString& tovar_short_name, const QString& storage_name);
@@ -91,6 +91,8 @@ private:
     std::set <int> index_set_rows{};
     std::set <int> index_set_rows_copy{};
     SettingWindow* set_window;
+    void UpdateAverageForLater (const QString& id);
+    bool first_launch = true;
 
 };
 #endif // MAINWINDOW_H

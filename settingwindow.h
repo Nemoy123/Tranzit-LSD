@@ -4,7 +4,7 @@
 #include <QDialog>
 #include <QListWidgetItem>
 #include <QMessageBox>
-
+#include <QFile>
 
 namespace Ui {
 class SettingWindow;
@@ -19,7 +19,7 @@ public:
     ~SettingWindow();
 
 signals:
-    void signal_importcsv(std::ifstream& file);
+    void signal_importcsv(QFile& file);
 
 private slots:
     void on_listWidget_itemClicked(QListWidgetItem *item);

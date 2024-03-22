@@ -1,7 +1,8 @@
 #include "settingwindow.h"
 #include "ui_settingwindow.h"
 #include <QFileDialog>
-#include <fstream>
+//#include <fstream>
+
 
 SettingWindow::SettingWindow(QWidget *parent)
     : QDialog(parent)
@@ -38,9 +39,10 @@ void SettingWindow::on_pushButton_clicked()
 void SettingWindow::on_pushButton_2_clicked()
 {
     //проверить правильность пути
-    std::ifstream file (ui->textEdit->toPlainText().toLocal8Bit(), std::ios::in);
-    if (!file.is_open()) {
-        qDebug() << ui->textEdit->toPlainText().toLocal8Bit();
+    QFile file (ui->textEdit->toPlainText());
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << ui->textEdit->toPlainText();
         QMessageBox::critical(0, "Cannot open file", "Проверьте путь к файлу", QMessageBox::Cancel);
 
         return;

@@ -15,7 +15,7 @@
 #include <QVariant>
 #include <QMap>
 #include "settingwindow.h"
-
+#include <fstream>
 
 void MainWindow::UpdateListStorage() {
     ui->listWidget->clear();
@@ -384,7 +384,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
         command["date_of_deal"] = vect_deals.at(0); // дата
         command["tovar_short_name"] = vect_deals.at(4); // заполняем название товара
         command["main_table_id"] = vect_deals.at(9); // заполняем ИД основной таблицы
-
+        QString id_new{};
         if (vect_deals.at(1).indexOf("НБ") == 0) { // приход на базу или перемещение между базами
 
             command["operation"] = vect_deals.at(1); // перемещаем графу поставщик + нефтебаза
@@ -419,6 +419,9 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                     qDebug() << "ERROR AddStorageDate date";
                 }
             }
+            id_new = AddRowSQLString ("storages", command);
+
+
         } else { // списание со склада клиенту
 
             command["operation"] = vect_deals.at(1); // куда списали
@@ -427,15 +430,25 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["departure_litres"] = vect_deals.at(5);
             command["plotnost"] = vect_deals.at(6);
             command["departure_kg"] = vect_deals.at(7);
-            command["price_tn"] = vect_deals.at(10); // заполняем цену ПРОДАЖИ В ТОННАХ
 
             double st_bal = StartingSaldo(command["date_of_deal"], command["tovar_short_name"], command["storage_name"]);
             command["start_balance"] = QString::number(st_bal);
 
             //QString sum = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble());
             command["balance_end"] = QString::number(command["start_balance"].toDouble() - command["departure_kg"].toDouble()); // заполняем конечное сальдо
+            //command["price_tn"] = AveragePriceIn(command["date_of_deal"], command["storage_name"], command["tovar_short_name"], command["start_balance"], ).toString(); // заполняем цену ПРОДАЖИ В ТОННАХ
+
+            id_new = AddRowSQLString ("storages", command);
+            command.clear();
+            command["price_tn"] = QString::number(AveragePriceIn(id_new));
+            command["id"] = id_new;
+            UpdateSQLString ("storages", command);
+            command["id"] = id_string;
+            command["price_in_tn"] = command["price_tn"];
+            command.remove("price_tn");
+            UpdateSQLString ("deals", command);
         }
-        QString id_new = AddRowSQLString ("storages", command);
+
         if (id_new == "-1") {
             qDebug() << "ERROR AddStorageDate command";
         }
@@ -823,11 +836,7 @@ void MainWindow::ShowStorages(const QString& store) {
 
 void MainWindow::on_settings_triggered()
 {
-    //setting_window = new Ui::SettingWindow;
 
-    // SettingWindow setting(this);
-    // setting.setModal(true);
-    // setting.exec();
     set_window = new SettingWindow;
     set_window->setModal(true);
     if (!(connect ( set_window, &SettingWindow::signal_importcsv, this, &MainWindow::ParsingCSV ) ) ) {
@@ -886,5 +895,80 @@ void MainWindow::on_pushButton_paste_clicked()
 
 void MainWindow::ParsingCSV (const std::ifstream& file) {
     qDebug() << "ParsingCSV";
+    if (!file.is_open()) {
+
+        QMessageBox::critical(0, "Cannot open file", "Сигнал слот не работает", QMessageBox::Cancel);
+
+        return;
+    }
+    else {
+        qDebug() << "Сигнал слот работает";
+    }
 }
 
+double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& storage_name,const QString& tovar_short_name,const QString& start_balance, const QString& id_storage) {
+
+
+    double ves = start_balance.toDouble();
+    int new_price = 0;
+
+    while(true) {
+        int counter = 1;
+        int money_in_store = 0;
+        int total_weight = 0;
+        QString command = "SELECT arrival_doc, price_tn  FROM storages WHERE tovar_short_name = '" + tovar_short_name
+                  + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
+                  "OR tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
+                  "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' ";
+        command += "ORDER BY date_of_deal DESC, id DESC LIMIT " + QString::number(counter * 10);
+
+        std::vector <std::pair <double, double>> store_in;
+        if (auto query = ExecuteSQL(command)) {
+            while(query.value().next()) {
+                store_in.push_back( {query.value().value(0).toString().toDouble(), query.value().value(1).toString().toDouble()} );
+            }
+        }
+        for (const auto& [in_mass, price]: store_in) {
+            if (ves >= in_mass) {
+                ves -= in_mass;
+                money_in_store += in_mass/1000 * price;
+                total_weight += in_mass/1000;
+            }
+            else if (ves == 0) {
+                break;
+            }
+            else {
+                money_in_store += (in_mass - ves)/1000 * price;
+                total_weight += (in_mass - ves)/1000;
+                ves = 0;
+                break;
+            }
+        }
+        if (ves == 0) {
+            if (total_weight == 0) {
+                qDebug() << "Ахтунг, деление на ноль";
+            }
+            double price_for_tn = money_in_store / total_weight;
+            return price_for_tn;
+        }
+        else {
+            ++counter;
+        }
+
+    }
+}
+
+double MainWindow::AveragePriceIn (const QString& id_storage) {
+
+    QString command = "SELECT date_of_deal, storage_name, tovar_short_name, start_balance FROM storages WHERE id = '" + id_storage + "'";
+    QMap <QString, QString> date;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            date.insert( "date_of_deal", query.value().value(0).toString() ); // первое value это от optional
+            date.insert( "storage_name", query.value().value(1).toString() );
+            date.insert( "tovar_short_name", query.value().value(2).toString() );
+            date.insert( "start_balance", query.value().value(3).toString() );
+        }
+    }
+    return AveragePriceIn (date.value("date_of_deal"), date.value("storage_name"),date.value("tovar_short_name"),date.value("start_balance"), id_storage);
+}

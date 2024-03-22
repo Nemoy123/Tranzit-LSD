@@ -86,7 +86,8 @@ private:
     void UpdateSQLString (const QString& storage, const QMap<QString, QString>& date);
     QString FindPrevIdFromStorage (const QString& storage_id);
     QString FindNextOrPrevIdFromStorage (const QString& storage_id, const QString& operation);
-
+    double AveragePriceIn (const QString& id_storage);
+    double AveragePriceIn (const QString& date_of_deal,const QString& storage_name,const QString& tovar_short_name,const QString& start_balance, const QString& id_storage);
     std::set <int> index_set_rows{};
     std::set <int> index_set_rows_copy{};
     SettingWindow* set_window;

@@ -13,6 +13,19 @@
 #include "settingwindow.h"
 #include <QFile>
 
+class Encdec {
+    int key = 13;
+
+    // File name to be encrypt
+    const QString* file_name_;
+    char c;
+
+public:
+    Encdec(const QString* name): file_name_(name){}
+    void encrypt(const QString& in);
+    QString decrypt();
+    const QString* GetName() const {return file_name_;}
+};
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -66,6 +79,19 @@ private slots:
 
 
 private:
+    bool LoadConfig ();
+    bool createConnection();
+
+    QSqlDatabase db_;
+    QString server_ = "localhost";
+    int port_ = -1;
+    QString base_name_ = "tranzit";
+    QString login_ = "postgres";
+    QString pass_ = "Bocman";
+    QString setting_file_ = "settings.lsd";
+    Encdec cl_enc;
+    void ChangeSettingServer(const QMap<QString, QString>& map_set);
+
     QVariant FindID (int row, int column);
     void UpdateListStorage();
     void ShowStorages(const QString& store);
@@ -78,7 +104,7 @@ private:
     bool DeleteFromSQL (const QString& storage, const QString& main_table_id);
     bool StorageAdding(const QString& id_string, QString& new_text);
     QString GetCurrentDate (); // получить дату Сегодня из SQL
-    QSqlDatabase db_;
+
     double StartingSaldo (const QString& date_of_deal, const QString& tovar_short_name, const QString& storage_name);
     double StartingSaldo (const QString& storage_id);
     void ChangeFutureStartSaldo (const QString& id);
@@ -93,6 +119,7 @@ private:
     SettingWindow* set_window;
     void UpdateAverageForLater (const QString& id);
     bool first_launch = true;
+
 
 };
 #endif // MAINWINDOW_H

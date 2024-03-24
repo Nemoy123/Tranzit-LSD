@@ -20,6 +20,7 @@ public:
 
 signals:
     void signal_importcsv(QFile& file);
+    void signal_set_server(const QMap <QString, QString>& server_set);
 
 private slots:
     void on_listWidget_itemClicked(QListWidgetItem *item);
@@ -27,6 +28,8 @@ private slots:
     void on_pushButton_clicked();
 
     void on_pushButton_2_clicked();
+
+    void on_pushButton_3_clicked();
 
 private:
     Ui::SettingWindow *ui;

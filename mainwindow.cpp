@@ -1,5 +1,4 @@
 #include "mainwindow.h"
-#include "connection.h"
 #include "./ui_mainwindow.h"
 #include <QApplication>
 #include <QCoreApplication>
@@ -17,6 +16,98 @@
 #include "settingwindow.h"
 #include <QFile>
 #include <QTextStream>
+#include <QFileInfo>
+#include <QCryptographicHash>
+
+
+
+void Encdec::encrypt(const QString& in) {
+    QString res{};
+    for (const QChar& ch : in) {
+        res += QChar(ch.unicode() + key);;
+    }
+
+    QFile file(*Encdec::GetName());
+
+    if (file.open(QIODevice::ReadWrite)) {
+        file.resize(0); // очистить файл
+        QDataStream stream(&file);
+        stream << res;
+        file.close();
+    }
+}
+
+// Definition of decryption function
+QString Encdec::decrypt()
+{
+    QFile file(*Encdec::GetName());
+    QString res{};
+    if (file.open(QIODevice::ReadOnly)) {
+        QDataStream stream(&file);
+        stream >> res;
+        file.close();
+    }
+    QString out {};
+    for (const QChar& ch : res) {
+        out += QChar(ch.unicode() - key);
+    }
+    return out;
+}
+
+
+bool MainWindow::LoadConfig () {
+    // проверяем наличие файла и что это именно файл а не ссылка
+    QFileInfo check_file(setting_file_);
+    // check if file exists and if yes: Is it really a file and no directory?
+    if (check_file.exists() && check_file.isFile()) {
+        qDebug() << "Есть файл";
+
+        QFile file(setting_file_);
+        if (file.open(QIODevice::ReadOnly)) {
+            QTextStream streamstring(&file);
+            //QString text = streamstring.readAll();
+            QString text = cl_enc.decrypt();
+            //if (streamstring.string() == nullptr) {return false;}
+            QStringList list = text.split("?");
+            if (list.size() != 6) {return false;}
+            server_ = list.at(0);
+            port_ = list.at(1).toInt();
+            base_name_ = list.at(2);
+            login_ = list.at(3);
+            pass_ = list.at(4);
+            file.close();
+            return true;
+        }
+    }
+    qDebug() << "Нет файла или файл не открылся";
+    return false;
+}
+
+bool MainWindow::createConnection() {
+    if (!LoadConfig ()) {
+        QString buffer{};
+        QTextStream stream(&buffer);
+        stream << server_<<"?"<<port_<<"?"<<base_name_<<"?"<<login_<<"?"<<pass_<<"?";
+        cl_enc.encrypt(stream.readAll());
+    }
+    QSqlDatabase db = QSqlDatabase::addDatabase("QPSQL", "connection1");
+    db.setHostName(server_);
+    db.setPort(port_);
+    db.setDatabaseName(base_name_);
+    db.setUserName(login_);
+    db.setPassword(pass_);
+
+    if (!db.open()) {// Если соединение с базой данных не удастся, оно появится
+        //critical(QWidget *parent, const QString &title,
+        //const QString &text,
+        //QMessageBox::StandardButtons buttons = Ok,
+        //QMessageBox::StandardButton defaultButton = NoButton)
+        QMessageBox::critical(0, "Cannot open database",
+                              "Unable to establish a database connection", QMessageBox::Cancel);
+        return false;
+    }
+    return true;
+}
 
 void MainWindow::UpdateListStorage() {
     ui->listWidget->clear();
@@ -148,8 +239,10 @@ bool MainWindow::DeleteFromSQL (const QString& storage, const QString& main_tabl
 MainWindow::MainWindow( QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , cl_enc(&setting_file_)
 {
     ui->setupUi(this);
+
     createConnection();
     //if(!createConnection()) return 1;// Ситуацию возврата можно заменить в зависимости от разных ситуаций
     // Указываем подключение к базе данных
@@ -902,7 +995,20 @@ void MainWindow::ShowStorages(const QString& store) {
 
 }
 
+void MainWindow::ChangeSettingServer(const QMap<QString, QString>& map_set) {
+    if (db_.isOpen()) {
+        db_.close();
+        qDebug() << "Connection old closed";
+    }
+    QString buffer{};
+    QTextStream stream(&buffer);
+    stream << map_set["server_"]<<"?"<<map_set["port_"]<<"?"<<map_set["base_name_"]<<"?"
+           <<map_set["login_"]<<"?"<<map_set["pass_"]<<"?";
+    cl_enc.encrypt(stream.readAll());
 
+    createConnection();
+    qDebug() << "Connection new opened?";
+}
 
 
 void MainWindow::on_settings_triggered()
@@ -913,6 +1019,11 @@ void MainWindow::on_settings_triggered()
     if (!(connect ( set_window, &SettingWindow::signal_importcsv, this, &MainWindow::ParsingCSV ) ) ) {
         qDebug() << "connect false";
     }
+    if (!(connect ( set_window, &SettingWindow::signal_set_server, this, &MainWindow::ChangeSettingServer ) ) ) {
+        qDebug() << "connect setting false";
+    }
+
+
     set_window->exec();
 
 

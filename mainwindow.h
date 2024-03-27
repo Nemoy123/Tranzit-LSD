@@ -84,7 +84,7 @@ private:
 
     QSqlDatabase db_;
     QString server_ = "localhost";
-    int port_ = -1;
+    int port_ = 5432;
     QString base_name_ = "tranzit";
     QString login_ = "postgres";
     QString pass_ = "Bocman";

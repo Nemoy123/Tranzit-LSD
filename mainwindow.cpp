@@ -488,34 +488,35 @@ void MainWindow::UpdateAverageForLater (const QString& id) {
             result.insert( "tovar_short_name", query.value().value(2).toString() );
         }
     }
-    command = "SELECT id FROM storages "
-                      "WHERE tovar_short_name = '" + result["tovar_short_name"] + "' AND storage_name = '" + result["storage_name"]
-                      + "' AND date_of_deal > '" + result["date_of_deal"] + "' AND id != '" + id + "' " +
-                      "OR tovar_short_name = '" + result["tovar_short_name"] +
+    command = "SELECT id, main_table_id FROM storages "
+                      "WHERE departure_kg > '0' AND tovar_short_name = '" + result["tovar_short_name"] + "' AND storage_name = '" + result["storage_name"]
+                      + "' AND date_of_deal > '" + result["date_of_deal"] + "' "
+                      "OR departure_kg > '0' AND tovar_short_name = '" + result["tovar_short_name"] +
                       "' AND storage_name = '" + result["storage_name"] +
                       "' AND date_of_deal = '" + result["date_of_deal"] + "' AND id > '" + id + "' "
-                     "ORDER BY date_of_deal, id";
-    QVector <QString> vect;
+                     "ORDER BY date_of_deal ASC, id ASC";
+    std::vector<QString> id_for_change {};
+    std::vector<QString> main_id_for_change {};
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
-            vect.push_back( query.value().value(0).toString() ); // первое value это от optional
+            // if (query.value().value(0).toDouble() == 0 && query.value().value(1).toDouble() > 0) { // если списание
+                id_for_change.push_back(query.value().value(0).toString());
+                main_id_for_change.push_back(query.value().value(1).toString());
+            // }
         }
     }
-    for (const auto& id_change: vect) {
-        auto new_price_for_deal = AveragePriceIn(id_change);
-        // найти id main_table и внести в deals
+    for (int i = 0; i < id_for_change.size(); ++i) {
+        QString pr = QString::number( AveragePriceIn( id_for_change.at(i) ) );
+        QMap<QString, QString> date{};
+        // date["id"] = id_for_change.at(i);
+        // date["price_tn"] = pr;
+        // UpdateSQLString("storages", date);
+        // date.clear();
+        date["id"] = main_id_for_change.at(i);
+        date["price_in_tn"] = pr;
+        UpdateSQLString("deals", date);
+    }
 
-        command = "SELECT DISTINCT main_table_id FROM storages WHERE id = '" + id_change + "'";
-        if (auto query = ExecuteSQL(command)) {
-            while(query.value().next()) {
-               QString id_for_change_in_deals = query.value().value(0).toString() ;
-                QMap<QString, QString> temp;
-                temp["id"] = id_for_change_in_deals;
-                temp["price_in_tn"] = QString::number(new_price_for_deal);
-                UpdateSQLString ("deals", temp);
-            }
-        }
-    }
 
 }
 
@@ -586,7 +587,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                 }
             }
             id_new = AddRowSQLString ("storages", command);
-            UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
+            //UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
 
 
         } else { // списание со склада клиенту
@@ -607,10 +608,11 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command.clear();
             command["id"] = id_string;
             command["price_in_tn"] = QString::number(AveragePriceIn(id_new));;
-            command.remove("price_tn");
+            //command.remove("price_tn");
             UpdateSQLString ("deals", command);
+            //UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
         }
-
+        UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
         if (id_new == "-1") {
             qDebug() << "ERROR AddStorageDate command";
         }
@@ -1077,61 +1079,152 @@ void MainWindow::on_pushButton_paste_clicked()
 
 
 
-double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& storage_name,const QString& tovar_short_name,const QString& start_balance, const QString& id_storage) {
+double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& storage_name,
+                                   const QString& tovar_short_name,const QString& start_balance, const QString& id_storage) {
 
+    // если в предыдущей строке Списание - взять средний  цену оттуда. елс иприход - рассчитывать
+    QString command = "SELECT arrival_doc, departure_kg, main_table_id  FROM storages WHERE tovar_short_name = '" + tovar_short_name
+                      + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
+                      "OR tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
+                      "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' ";
+     command += "ORDER BY date_of_deal DESC, id DESC LIMIT 1";
+    if (auto query = ExecuteSQL(command)) {
+        if(query.value().next()) {
+            if (query.value().value(0).toDouble() == 0 &&  query.value().value(1).toDouble() > 0) {
+                QString main_id = query.value().value(2).toString();
 
-    double ves = start_balance.toDouble();
-    if (ves <= 0) {return 0;}
-    int new_price = 0;
-    int counter = 1;
-    while(true) {
-
-        double money_in_store = 0;
-        double total_weight = 0;
-        QString command = "SELECT arrival_doc, price_tn  FROM storages WHERE arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
-                  + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
-                  "OR arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
-                  "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' ";
-        command += "ORDER BY date_of_deal DESC, id DESC LIMIT " + QString::number(counter * 10);
-
-        std::vector <std::pair <double, double>> store_in;
-        if (auto query = ExecuteSQL(command)) {
-            while(query.value().next()) {
-                store_in.push_back( {query.value().value(0).toString().toDouble(), query.value().value(1).toString().toDouble()} );
+                command = "SELECT price_in_tn FROM deals WHERE id = '" + main_id + "'";
+                if (auto query_deals = ExecuteSQL(command)) {
+                    if(query_deals.value().next()) {
+                        double res = query_deals.value().value(0).toDouble();
+                        return res;
+                    }
+                }
             }
-        }
-        for (const auto& [in_mass, price]: store_in) {
-            if (ves >= in_mass) {
-                ves -= in_mass;
-                money_in_store += in_mass/1000 * price;
-                total_weight += in_mass/1000;
-            }
-            else if (ves == 0) {
-                break;
-            }
-            else {
-                money_in_store += (in_mass - ves)/1000 * price;
-                total_weight += (in_mass - ves)/1000;
-                ves = 0;
-                break;
-            }
-        }
-        if (ves == 0) {
-            if (total_weight == 0) {
-                qDebug() << "Ахтунг, деление на ноль";
-                return 0;
-            }
-            double price_for_tn = money_in_store / total_weight;
-            return price_for_tn;
-        }
-        else {
-            ++counter;
-        }
-        if (counter > 10000) {
-            qDebug() << "Ахтунг, бесконечный цикл";
-            return 0;
         }
     }
+
+    // если в предыдущей строке Приход:
+    bool last_mass_bool = false;
+   // double last_mass = 0;
+    double price_last_mass = 0;
+    QString main_id_for_last_mass {};
+    QString id_last_mass{};
+    QString date_last_mass{};
+    double balance_end_last_mass = 0;
+    //проверить есть ли списание перед Приходом/Приходами - взять оттуда (конечный вес * ср цену)
+     command = "SELECT  main_table_id, id, date_of_deal, balance_end  FROM storages WHERE departure_kg > '0' AND tovar_short_name = '" + tovar_short_name
+                       + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
+                       "OR departure_kg > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
+                       "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' "
+                       "ORDER BY date_of_deal DESC, id DESC LIMIT 1";
+    if (auto query = ExecuteSQL(command)) {
+        if(query.value().next()) {
+          //  last_mass = query.value().value(0).toDouble();
+            main_id_for_last_mass = query.value().value(0).toString();
+            id_last_mass = query.value().value(1).toString();
+            date_last_mass = query.value().value(2).toString();
+            balance_end_last_mass = query.value().value(3).toDouble();
+            last_mass_bool = true;
+        }
+    }
+    command = "SELECT price_in_tn FROM deals WHERE id = '" + main_id_for_last_mass + "'";
+    if (auto query_deals = ExecuteSQL(command)) {
+        if(query_deals.value().next()) {
+            price_last_mass = query_deals.value().value(0).toDouble();
+        }
+    }
+
+    // посчитать все приходы после последнего списания
+    double total_mass = 0;
+    double total_cost = 0;
+
+    if (last_mass_bool) {
+
+        command = "SELECT arrival_doc, price_tn  FROM storages WHERE arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
+                                 + "' AND storage_name = '" + storage_name + "' AND date_of_deal > '" + date_last_mass + "' "
+                                 "OR arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
+                                 "' AND date_of_deal = '" + date_last_mass + "'" +" AND id < '" + id_last_mass + "' "
+                                "ORDER BY date_of_deal ASC, id ASC";
+        total_mass += balance_end_last_mass / 1000;
+        total_cost += balance_end_last_mass / 1000 * price_last_mass;
+    }
+    else { // если списаний ранее не было, посчитать все приходы
+        command = "SELECT arrival_doc, price_tn  FROM storages WHERE arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
+                  + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
+                   "OR arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
+                  "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "'";
+    }
+    std::vector <std::pair <double, double>> store_in;
+    if (auto query = ExecuteSQL(command)) {
+         while(query.value().next()) {
+             store_in.push_back( {query.value().value(0).toString().toDouble(), query.value().value(1).toString().toDouble()} );
+         }
+    }
+    for (const auto& [in_mass, price]: store_in) {
+        total_mass += in_mass/1000;
+        total_cost += in_mass / 1000 * price;
+    }
+    if (total_mass != 0) {
+        double result = total_cost / total_mass;
+        return result;
+    }
+
+    else return 0;
+
+
+    // double ves = start_balance.toDouble();
+    // if (ves <= 0) {return 0;}
+    // int new_price = 0;
+    // int counter = 1;
+    // while(true) {
+
+    //     double money_in_store = 0;
+    //     double total_weight = 0;
+    //     QString command = "SELECT arrival_doc, price_tn  FROM storages WHERE arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
+    //               + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
+    //               "OR arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
+    //               "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' ";
+    //     command += "ORDER BY date_of_deal DESC, id DESC LIMIT " + QString::number(counter * 10);
+
+    //     std::vector <std::pair <double, double>> store_in;
+    //     if (auto query = ExecuteSQL(command)) {
+    //         while(query.value().next()) {
+    //             store_in.push_back( {query.value().value(0).toString().toDouble(), query.value().value(1).toString().toDouble()} );
+    //         }
+    //     }
+    //     for (const auto& [in_mass, price]: store_in) {
+    //         if (ves >= in_mass) {
+    //             ves -= in_mass;
+    //             money_in_store += in_mass/1000 * price;
+    //             total_weight += in_mass/1000;
+    //         }
+    //         else if (ves == 0) {
+    //             break;
+    //         }
+    //         else {
+    //             money_in_store += (in_mass - ves)/1000 * price;
+    //             total_weight += (in_mass - ves)/1000;
+    //             ves = 0;
+    //             break;
+    //         }
+    //     }
+    //     if (ves == 0) {
+    //         if (total_weight == 0) {
+    //             qDebug() << "Ахтунг, деление на ноль";
+    //             return 0;
+    //         }
+    //         double price_for_tn = money_in_store / total_weight;
+    //         return price_for_tn;
+    //     }
+    //     else {
+    //         ++counter;
+    //     }
+    //     if (counter > 10000) {
+    //         qDebug() << "Ахтунг, бесконечный цикл";
+    //         return 0;
+    //     }
+    // }
 }
 
 double MainWindow::AveragePriceIn (const QString& id_storage) {

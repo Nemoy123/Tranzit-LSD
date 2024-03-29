@@ -21,6 +21,7 @@ public:
 signals:
     void signal_importcsv(QFile& file);
     void signal_set_server(const QMap <QString, QString>& server_set);
+    void signal_check_store();
 
 private slots:
     void on_listWidget_itemClicked(QListWidgetItem *item);
@@ -31,9 +32,11 @@ private slots:
 
     void on_pushButton_3_clicked();
 
+    void on_Button_check_store_clicked();
+
 private:
     Ui::SettingWindow *ui;
-    //void ParsingCSV(const std::ifstream& file);
+
 
 
 };

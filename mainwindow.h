@@ -76,7 +76,7 @@ private slots:
 
     void on_pushButton_paste_clicked();
 
-
+    void CheckStorages();
 
 private:
     bool LoadConfig ();

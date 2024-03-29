@@ -13,8 +13,12 @@ SettingWindow::SettingWindow(QWidget *parent)
     ui->Widget_import->hide();
     ui->listWidget->addItem("База данных");
     ui->listWidget->addItem("Импорт данных");
-    ui->listWidget->addItem("Текст");
-
+    //ui->listWidget->addItem("Текст");
+    ui->listWidget->addItem("Проверка БД");
+    ui->BaseWidget_1->hide();
+    ui->BaseWidget_2->hide();
+    ui->Widget_check_store->hide();
+    ui->Widget_import->hide();
 
 }
 
@@ -29,19 +33,22 @@ void SettingWindow::on_listWidget_itemClicked(QListWidgetItem *item)
     if (store == "Импорт данных") {
         ui->BaseWidget_1->hide();
         ui->BaseWidget_2->hide();
+        ui->Widget_check_store->hide();
         ui->Widget_import->show();
     }
     else if (store == "База данных") {
+        ui->Widget_import->hide();
+        ui->Widget_check_store->hide();
         ui->BaseWidget_1->show();
         ui->BaseWidget_2->show();
+    }
+    else if (store == "Проверка БД") {
         ui->Widget_import->hide();
+        ui->Widget_check_store->show();
+        ui->BaseWidget_1->hide();
+        ui->BaseWidget_2->hide();
     }
 
-
-    // auto store = item->text();
-    // ui->statusbar->showMessage(store);
-    // ShowStorages(store);
-    // ui->buttons_action->setVisible(false);
 }
 
 
@@ -80,9 +87,16 @@ void SettingWindow::on_pushButton_3_clicked() // применить настро
     server_set["port_"] = ui->textEdit_port_server->toPlainText();
     server_set["login_"] = ui->textEdit_login_server->toPlainText();
     server_set["pass_"] = ui->textEdit_pass_server->toPlainText();
-    qDebug() << "ОТправляем сигнал настройки сервера";
+    qDebug() << "Отправляем сигнал настройки сервера";
     // вставить коннект на сигнал функции в главном окне
 
     emit signal_set_server(server_set);
+}
+
+
+void SettingWindow::on_Button_check_store_clicked()
+{
+    // даем сигналя для запуска слота проверки базы склада
+    emit signal_check_store ();
 }
 

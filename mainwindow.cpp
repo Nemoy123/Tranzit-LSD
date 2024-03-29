@@ -1024,7 +1024,9 @@ void MainWindow::on_settings_triggered()
     if (!(connect ( set_window, &SettingWindow::signal_set_server, this, &MainWindow::ChangeSettingServer ) ) ) {
         qDebug() << "connect setting false";
     }
-
+    if (!(connect ( set_window, &SettingWindow::signal_check_store, this, &MainWindow::CheckStorages ) ) ) {
+        qDebug() << "connect check_store false";
+    }
 
     set_window->exec();
 
@@ -1126,14 +1128,15 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
             date_last_mass = query.value().value(2).toString();
             balance_end_last_mass = query.value().value(3).toDouble();
             last_mass_bool = true;
+            command = "SELECT price_in_tn FROM deals WHERE id = '" + main_id_for_last_mass + "'";
+            if (auto query_deals = ExecuteSQL(command)) {
+                if(query_deals.value().next()) {
+                    price_last_mass = query_deals.value().value(0).toDouble();
+                }
+            }
         }
     }
-    command = "SELECT price_in_tn FROM deals WHERE id = '" + main_id_for_last_mass + "'";
-    if (auto query_deals = ExecuteSQL(command)) {
-        if(query_deals.value().next()) {
-            price_last_mass = query_deals.value().value(0).toDouble();
-        }
-    }
+
 
     // посчитать все приходы после последнего списания
     double total_mass = 0;
@@ -1152,8 +1155,8 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
                         "AND ( (date_of_deal < '" + date_of_deal + "') OR (date_of_deal = '" + date_of_deal + "' AND id < '" + id_storage + "') ) ) "
                         "ORDER BY date_of_deal ASC, id ASC";
 
-        setlocale(LC_ALL, "");
-        qDebug() << command;
+        //setlocale(LC_ALL, "");
+        //qDebug() << command;
         total_mass += balance_end_last_mass / 1000;
         total_cost += balance_end_last_mass / 1000 * price_last_mass;
     }
@@ -1250,4 +1253,26 @@ void MainWindow::ParsingCSV (QFile& file) {
     qDebug() << "ParsingCSV end GOOD";
 
     //AddRowSQL (const QString& storage, const QMap<QString, QString>& date_)
+}
+
+
+void MainWindow::CheckStorages() {
+    // удалить все записи из storages
+    QString command = "DELETE FROM storages";
+    ExecuteSQL(command);
+
+    // запустить для  записей в deals (где есть движение по складу) создание storage записи
+
+    command = "SELECT id FROM deals WHERE customer LIKE 'НБ%' OR postavshik LIKE 'НБ%' ORDER BY date_of_deal ASC, id ASC";
+    QVector<QString> vect_deals;
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            vect_deals.push_back( query.value().value(0).toString() ); // первое value это от optional
+        }
+    }
+    QString empty_stroke{};
+    for (const auto& id_deals :  vect_deals) {
+        StorageAdding(id_deals, empty_stroke);
+    }
+
 }

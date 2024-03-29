@@ -528,7 +528,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
         || query_test.value().value(1).toString().indexOf("НБ") == 0
         || new_text.indexOf("НБ") == 0
         ) {
-        //command_store = "INSERT INTO storages (date_of_deal,  operation, storage_name, tovar_short_name, arrival_doc, departure_litres, plotnost, departure_kg, price_tn, main_table_id) VALUES ";
+
 
         // получить нужные данные из deals
         QString command_to_deals = "SELECT date_of_deal, customer, postavshik, neftebaza, tovar_short_name, litres, plotnost, ves, price_in_tn, id, price_out_tn, price_out_litres FROM deals WHERE id =";
@@ -554,7 +554,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
         QString id_new{};
         if (vect_deals.at(1).indexOf("НБ") == 0) { // приход на базу или перемещение между базами
 
-            command["operation"] = vect_deals.at(1); // перемещаем графу поставщик + нефтебаза
+            command["operation"] = vect_deals.at(2) +" "+ vect_deals.at(3); // перемещаем графу поставщик + нефтебаза
             //new_text.simplified().replace(char{32}, char{95});
             command["storage_name"] = vect_deals.at(1).simplified(); // заполняем название склада
             command["arrival_doc"] = vect_deals.at(7); // заполняем вес прихода
@@ -1144,21 +1144,7 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
 
     if (last_mass_bool) {
 
-    //     command = "SELECT arrival_doc, price_tn  FROM storages WHERE " + command_paste +
-    //                              "AND date_of_deal > '" + date_last_mass + "' AND date_of_deal < '" + date_of_deal + "' "
-    //                            "OR"  + command_paste  +
-    //                              "AND date_of_deal = '" + date_last_mass + "'" +" AND id > '" + id_last_mass + "' "
-    //                              " AND id != '" + id_storage + "' "
-    //                              "OR"  + command_paste  +
-    //                              "AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' "
-    //                              " AND id != '" + id_last_mass + "' "
-    //                            "OR"  + command_paste +
-    //                              "AND date_of_deal > '" + date_last_mass + "'" +
-    //                              "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' "
-    //                            "OR"  + command_paste +
-    //                              "AND date_of_deal = '" + date_last_mass + "'" + " AND id > '" + id_last_mass + "' "
-    //                              "AND date_of_deal < '" + date_of_deal + "' "
-    //                             "ORDER BY date_of_deal ASC, id ASC";
+
 
         command = "SELECT arrival_doc, price_tn, id  FROM storages WHERE "
                   + command_paste +

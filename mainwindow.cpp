@@ -103,7 +103,7 @@ bool MainWindow::createConnection() {
         //QMessageBox::StandardButtons buttons = Ok,
         //QMessageBox::StandardButton defaultButton = NoButton)
         QMessageBox::critical(0, "Cannot open database",
-                              "Unable to establish a database connection", QMessageBox::Cancel);
+                              "Unable to establish a database connection: " + db.lastError().text(), QMessageBox::Cancel);
         return false;
     }
     return true;
@@ -1139,13 +1139,35 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
     double total_mass = 0;
     double total_cost = 0;
 
+    QString command_paste = " (arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
+                            + "' AND storage_name = '" + storage_name + "') ";
+
     if (last_mass_bool) {
 
-        command = "SELECT arrival_doc, price_tn  FROM storages WHERE arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
-                                 + "' AND storage_name = '" + storage_name + "' AND date_of_deal > '" + date_last_mass + "' "
-                                 "OR arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
-                                 "' AND date_of_deal = '" + date_last_mass + "'" +" AND id < '" + id_last_mass + "' "
-                                "ORDER BY date_of_deal ASC, id ASC";
+    //     command = "SELECT arrival_doc, price_tn  FROM storages WHERE " + command_paste +
+    //                              "AND date_of_deal > '" + date_last_mass + "' AND date_of_deal < '" + date_of_deal + "' "
+    //                            "OR"  + command_paste  +
+    //                              "AND date_of_deal = '" + date_last_mass + "'" +" AND id > '" + id_last_mass + "' "
+    //                              " AND id != '" + id_storage + "' "
+    //                              "OR"  + command_paste  +
+    //                              "AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' "
+    //                              " AND id != '" + id_last_mass + "' "
+    //                            "OR"  + command_paste +
+    //                              "AND date_of_deal > '" + date_last_mass + "'" +
+    //                              "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' "
+    //                            "OR"  + command_paste +
+    //                              "AND date_of_deal = '" + date_last_mass + "'" + " AND id > '" + id_last_mass + "' "
+    //                              "AND date_of_deal < '" + date_of_deal + "' "
+    //                             "ORDER BY date_of_deal ASC, id ASC";
+
+        command = "SELECT arrival_doc, price_tn, id  FROM storages WHERE "
+                  + command_paste +
+                  "AND ( ( ( date_of_deal > '" + date_last_mass + "') OR (date_of_deal = '" + date_last_mass + "' AND id > '" + id_last_mass + "') ) "
+                        "AND ( (date_of_deal < '" + date_of_deal + "') OR (date_of_deal = '" + date_of_deal + "' AND id < '" + id_storage + "') ) ) "
+                        "ORDER BY date_of_deal ASC, id ASC";
+
+        setlocale(LC_ALL, "");
+        qDebug() << command;
         total_mass += balance_end_last_mass / 1000;
         total_cost += balance_end_last_mass / 1000 * price_last_mass;
     }
@@ -1159,6 +1181,7 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
     if (auto query = ExecuteSQL(command)) {
          while(query.value().next()) {
              store_in.push_back( {query.value().value(0).toString().toDouble(), query.value().value(1).toString().toDouble()} );
+             qDebug() << query.value().value(2).toString();
          }
     }
     for (const auto& [in_mass, price]: store_in) {
@@ -1172,59 +1195,6 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
 
     else return 0;
 
-
-    // double ves = start_balance.toDouble();
-    // if (ves <= 0) {return 0;}
-    // int new_price = 0;
-    // int counter = 1;
-    // while(true) {
-
-    //     double money_in_store = 0;
-    //     double total_weight = 0;
-    //     QString command = "SELECT arrival_doc, price_tn  FROM storages WHERE arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name
-    //               + "' AND storage_name = '" + storage_name + "' AND date_of_deal < '" + date_of_deal + "' "
-    //               "OR arrival_doc > '0' AND tovar_short_name = '" + tovar_short_name + "' AND storage_name = '" + storage_name +
-    //               "' AND date_of_deal = '" + date_of_deal + "'" +" AND id < '" + id_storage + "' ";
-    //     command += "ORDER BY date_of_deal DESC, id DESC LIMIT " + QString::number(counter * 10);
-
-    //     std::vector <std::pair <double, double>> store_in;
-    //     if (auto query = ExecuteSQL(command)) {
-    //         while(query.value().next()) {
-    //             store_in.push_back( {query.value().value(0).toString().toDouble(), query.value().value(1).toString().toDouble()} );
-    //         }
-    //     }
-    //     for (const auto& [in_mass, price]: store_in) {
-    //         if (ves >= in_mass) {
-    //             ves -= in_mass;
-    //             money_in_store += in_mass/1000 * price;
-    //             total_weight += in_mass/1000;
-    //         }
-    //         else if (ves == 0) {
-    //             break;
-    //         }
-    //         else {
-    //             money_in_store += (in_mass - ves)/1000 * price;
-    //             total_weight += (in_mass - ves)/1000;
-    //             ves = 0;
-    //             break;
-    //         }
-    //     }
-    //     if (ves == 0) {
-    //         if (total_weight == 0) {
-    //             qDebug() << "Ахтунг, деление на ноль";
-    //             return 0;
-    //         }
-    //         double price_for_tn = money_in_store / total_weight;
-    //         return price_for_tn;
-    //     }
-    //     else {
-    //         ++counter;
-    //     }
-    //     if (counter > 10000) {
-    //         qDebug() << "Ахтунг, бесконечный цикл";
-    //         return 0;
-    //     }
-    // }
 }
 
 double MainWindow::AveragePriceIn (const QString& id_storage) {

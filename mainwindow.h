@@ -83,11 +83,11 @@ private:
     bool createConnection();
 
     QSqlDatabase db_;
-    QString server_ = "localhost";
+    QString server_ = "";
     int port_ = 5432;
     QString base_name_ = "tranzit";
     QString login_ = "postgres";
-    QString pass_ = "Bocman";
+    QString pass_ = "Serva_984";
     QString setting_file_ = "settings.lsd";
     Encdec cl_enc;
     void ChangeSettingServer(const QMap<QString, QString>& map_set);
@@ -119,7 +119,8 @@ private:
     SettingWindow* set_window;
     void UpdateAverageForLater (const QString& id);
     bool first_launch = true;
-
+    // int index_row_change_item = -1;
+    void UpdateModelDeals ();
 
 };
 #endif // MAINWINDOW_H

@@ -259,7 +259,7 @@ MainWindow::~MainWindow()
 QVariant MainWindow::FindID (int row, int column) {
     QModelIndex index_id = model->index(row, column);
     QVariant data = model->data(index_id);
-    qDebug() << data;
+    //qDebug() << data;
     return data;
 }
 
@@ -499,19 +499,13 @@ void MainWindow::UpdateAverageForLater (const QString& id) {
     std::vector<QString> main_id_for_change {};
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
-            // if (query.value().value(0).toDouble() == 0 && query.value().value(1).toDouble() > 0) { // если списание
-                id_for_change.push_back(query.value().value(0).toString());
-                main_id_for_change.push_back(query.value().value(1).toString());
-            // }
+            id_for_change.push_back(query.value().value(0).toString());
+            main_id_for_change.push_back(query.value().value(1).toString());
         }
     }
     for (int i = 0; i < id_for_change.size(); ++i) {
         QString pr = QString::number( AveragePriceIn( id_for_change.at(i) ) );
         QMap<QString, QString> date{};
-        // date["id"] = id_for_change.at(i);
-        // date["price_tn"] = pr;
-        // UpdateSQLString("storages", date);
-        // date.clear();
         date["id"] = main_id_for_change.at(i);
         date["price_in_tn"] = pr;
         UpdateSQLString("deals", date);
@@ -528,8 +522,6 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
         || query_test.value().value(1).toString().indexOf("НБ") == 0
         || new_text.indexOf("НБ") == 0
         ) {
-
-
         // получить нужные данные из deals
         QString command_to_deals = "SELECT date_of_deal, customer, postavshik, neftebaza, tovar_short_name, litres, plotnost, ves, price_in_tn, id, price_out_tn, price_out_litres FROM deals WHERE id =";
         command_to_deals += id_string;
@@ -625,6 +617,24 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     return false;
 }
 
+void MainWindow::UpdateModelDeals () {
+    if (auto query = ExecuteSQL("SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, "
+                                "tovar_short_name, litres, plotnost, ves, price_in_tn, price_out_tn, "
+                                "price_out_litres, transp_cost_tn, commission, rentab_tn, profit,manager, "
+                                "id FROM deals ORDER BY date_of_deal, id")) {
+        int row_count = 0;
+        while(query.value().next()){
+            for (auto i = 0; i < 18; ++i) {
+                // добавить условие если новое значение не равно старому
+                auto temp = query.value().value(i).toString();
+                if (model->item(row_count, i)->data(Qt::DisplayRole).toString() != temp) {
+                    model->setItem(row_count, i, new QStandardItem(query.value().value(i).toString()));
+                }
+            }
+            ++row_count;
+        }
+    }
+}
 
 void MainWindow::on_pushButton_deals_clicked()
 {
@@ -652,6 +662,7 @@ void MainWindow::on_pushButton_deals_clicked()
     model->setHeaderData(16, Qt::Horizontal, "Менеджер");
     model->setHeaderData(17, Qt::Horizontal, "ID");
 
+    // UpdateModelDeals ();
     if (auto query = ExecuteSQL("SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, "
                             "tovar_short_name, litres, plotnost, ves, price_in_tn, price_out_tn, "
                             "price_out_litres, transp_cost_tn, commission, rentab_tn, profit,manager, "
@@ -722,7 +733,9 @@ void MainWindow::on_pushButton_deals_clicked()
                         QString qout =  {"UPDATE " + table_name + " SET " + vect.value(column) + " = '" + new_text + "' WHERE id = " + id_string};
                         ExecuteSQL(qout);
                         StorageAdding(id_string, new_text);
-                        on_pushButton_deals_clicked();
+                        //index_row_change_item = item->index().row();
+                        //on_pushButton_deals_clicked();
+                        UpdateModelDeals ();
                     });
 
 
@@ -735,6 +748,13 @@ void MainWindow::on_pushButton_deals_clicked()
         ui->tableView->scrollTo(bottomLeft);
         first_launch = false;
     }
+    // else {
+    //     if (index_row_change_item > 0) {
+    //         QModelIndex position = model->index(index_row_change_item, 0);
+    //         ui->tableView->scrollTo(position);
+    //         index_row_change_item = -1; //сброс индекса
+    //     }
+    // }
     connect(ui->tableView->selectionModel(),
             SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
             this,
@@ -831,6 +851,7 @@ void MainWindow::on_pushButton_delete_clicked()
     }
 
     on_pushButton_deals_clicked();
+    //UpdateModelDeals();
 }
 
 QString MainWindow::GetCurrentDate () {
@@ -849,6 +870,7 @@ void MainWindow::on_pushButton_new_clicked()
 {
     ExecuteSQL (QString{"INSERT INTO deals (date_of_deal) VALUES ('"+ GetCurrentDate () + "')"});
     on_pushButton_deals_clicked();
+    //UpdateModelDeals();
 }
 
 
@@ -1074,6 +1096,7 @@ void MainWindow::on_pushButton_paste_clicked()
         auto id_num = AddRowSQLString ("deals", date);
         QString temp ={};
         StorageAdding(id_num, temp);
+        //UpdateModelDeals();
         on_pushButton_deals_clicked();
 
     }

@@ -209,14 +209,23 @@ QMap<QString, QString>& MainWindow::CheckDealsParam (QMap<QString, QString>& dat
 
 
     // проверить если приход на базу далее не выполнять
-    QString command = "SELECT customer FROM deals WHERE id = '" + date.value("id") + "'";
-    if (auto query = ExecuteSQL(command)) {
-        if(query.value().next()) {
-            if (query.value().value(0).toString().indexOf("НБ") == 0) {
-                date["rentab_tn"] = "0";
-                date["profit"] = "0";
-                return date;
+    if (date.contains("id") && !date.contains("customer")) {
+        QString command = "SELECT customer FROM deals WHERE id = '" + date.value("id") + "'";
+        if (auto query = ExecuteSQL(command)) {
+            if(query.value().next()) {
+                if (query.value().value(0).toString().indexOf("НБ") == 0) {
+                    date["rentab_tn"] = "0";
+                    date["profit"] = "0";
+                    return date;
+                }
             }
+        }
+    }
+    else if (date.contains("customer")) {
+        if (date.value("customer").indexOf("НБ") == 0) {
+            date["rentab_tn"] = "0";
+            date["profit"] = "0";
+            return date;
         }
     }
 
@@ -1159,7 +1168,9 @@ void MainWindow::on_pushButton_paste_clicked()
                 date["date_of_deal"] = GetCurrentDate();
             }
         }
+
         auto id_num = AddRowSQLString ("deals", date);
+        //CheckDealsParam(id_num);
         QString temp ={};
         StorageAdding(id_num, temp);
         //UpdateModelDeals();

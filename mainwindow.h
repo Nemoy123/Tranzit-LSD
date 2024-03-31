@@ -84,7 +84,7 @@ private:
     bool createConnection();
 
     QSqlDatabase db_;
-    QString server_ = "";
+    QString server_ = "localhost";
     int port_ = 5432;
     QString base_name_ = "tranzit";
     QString login_ = "postgres";
@@ -122,7 +122,7 @@ private:
     bool first_launch = true;
     int index_row_change_item = -1;
     // void UpdateModelDeals ();
-    QMap<QString, QString>& CheckDealsParam (QMap<QString, QString>& date);
-    QMap<QString, QString>& CheckDealsParam (const QString& id_deals);
+    QMap<QString, QString> CheckDealsParam (QMap<QString, QString>& date);
+    QMap<QString, QString> CheckDealsParam (const QString& id_deals);
 };
 #endif // MAINWINDOW_H

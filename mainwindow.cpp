@@ -90,20 +90,20 @@ bool MainWindow::createConnection() {
         stream << server_<<"?"<<port_<<"?"<<base_name_<<"?"<<login_<<"?"<<pass_<<"?";
         cl_enc.encrypt(stream.readAll());
     }
-    QSqlDatabase db = QSqlDatabase::addDatabase("QPSQL", "connection1");
-    db.setHostName(server_);
-    db.setPort(port_);
-    db.setDatabaseName(base_name_);
-    db.setUserName(login_);
-    db.setPassword(pass_);
+    db_ = QSqlDatabase::addDatabase("QPSQL", "connection1");
+    db_.setHostName(server_);
+    db_.setPort(port_);
+    db_.setDatabaseName(base_name_);
+    db_.setUserName(login_);
+    db_.setPassword(pass_);
 
-    if (!db.open()) {// Если соединение с базой данных не удастся, оно появится
+    if (!db_.open()) {// Если соединение с базой данных не удастся, оно появится
         //critical(QWidget *parent, const QString &title,
         //const QString &text,
         //QMessageBox::StandardButtons buttons = Ok,
         //QMessageBox::StandardButton defaultButton = NoButton)
         QMessageBox::critical(0, "Cannot open database",
-                              "Unable to establish a database connection: " + db.lastError().text(), QMessageBox::Cancel);
+                              "Unable to establish a database connection: " + db_.lastError().text(), QMessageBox::Cancel);
         return false;
     }
     return true;
@@ -155,7 +155,7 @@ QString ValuesString (const QVector <QString>& vect) {
     return result;
 }
 
-QMap<QString, QString>& MainWindow::CheckDealsParam (const QString& id_deals) {
+QMap<QString, QString> MainWindow::CheckDealsParam (const QString& id_deals) {
     const QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
                           "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
     QMap<QString, QString> date;
@@ -177,7 +177,7 @@ QMap<QString, QString>& MainWindow::CheckDealsParam (const QString& id_deals) {
 }
 
 
-QMap<QString, QString>& MainWindow::CheckDealsParam (QMap<QString, QString>& date) {
+QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date) {
 
     if (date.contains("price_out_litres") && date.contains("plotnost")) {
         double price_lt =0;
@@ -198,7 +198,7 @@ QMap<QString, QString>& MainWindow::CheckDealsParam (QMap<QString, QString>& dat
         }
         else if (lit != 0 && plot == 0 && ves != 0) {
             plot = ves / lit;
-            date["plotnost"] = QString::number(lit,'f',3);
+            date["plotnost"] = QString::number(plot,'f',3);
         }
         else if (lit != 0 && plot != 0 && ves == 0) {
             ves = lit * plot;
@@ -754,9 +754,9 @@ void MainWindow::on_pushButton_deals_clicked()
                                                 "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
                         int column = item->index().column();
                         int row =    item->index().row();
-                        QString table_name {"deals"};
+                        //QString table_name {"deals"};
                         int id_number_column = 17;
-                        QString id_string = FindID(row, id_number_column).toString();
+                        const QString id_string = FindID(row, id_number_column).toString();
                         QString new_text = item->text();
                         if (vect.value(column) == "plotnost" || vect.value(column) == "price_out_litres") {
                             new_text.replace(',', '.'); // убрать запятую если плотность или цена в литрах
@@ -1107,7 +1107,7 @@ void MainWindow::ShowStorages(const QString& store) {
 void MainWindow::ChangeSettingServer(const QMap<QString, QString>& map_set) {
     if (db_.isOpen()) {
         db_.close();
-        qDebug() << "Connection old closed";
+        qDebug() << "Old DB closed";
     }
     QString buffer{};
     QTextStream stream(&buffer);

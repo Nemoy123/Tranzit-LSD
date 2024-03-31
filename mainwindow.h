@@ -13,6 +13,7 @@
 #include "settingwindow.h"
 #include <QFile>
 
+
 class Encdec {
     int key = 13;
 
@@ -119,8 +120,9 @@ private:
     SettingWindow* set_window;
     void UpdateAverageForLater (const QString& id);
     bool first_launch = true;
-    // int index_row_change_item = -1;
-    void UpdateModelDeals ();
-
+    int index_row_change_item = -1;
+    // void UpdateModelDeals ();
+    QMap<QString, QString>& CheckDealsParam (QMap<QString, QString>& date);
+    QMap<QString, QString>& CheckDealsParam (const QString& id_deals);
 };
 #endif // MAINWINDOW_H

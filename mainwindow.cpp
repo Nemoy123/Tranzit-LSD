@@ -155,7 +155,30 @@ QString ValuesString (const QVector <QString>& vect) {
     return result;
 }
 
-QMap<QString, QString>& CheckDealsParam (QMap<QString, QString>& date) {
+QMap<QString, QString>& MainWindow::CheckDealsParam (const QString& id_deals) {
+    const QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                          "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
+    QMap<QString, QString> date;
+    date["id"] = id_deals;
+    QString command = "SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, tovar_short_name, litres, plotnost, ves, price_in_tn, "
+                      "price_out_tn, price_out_litres, transp_cost_tn, commission, rentab_tn, profit, manager "
+                      "FROM deals WHERE id = '" + id_deals + "'";
+
+    if (auto query = ExecuteSQL(command)) {
+        if(query.value().next()) {
+            for (int i = 0; i < vect.size(); ++i) {
+                date[vect.at(i)] = query.value().value(i).toString();
+            }
+        }
+    }
+    return CheckDealsParam (date);
+
+
+}
+
+
+QMap<QString, QString>& MainWindow::CheckDealsParam (QMap<QString, QString>& date) {
+
     if (date.contains("price_out_litres") && date.contains("plotnost")) {
         double price_lt =0;
         price_lt = date.value("price_out_litres").toDouble(); // если цена за литр не равна 0
@@ -165,6 +188,39 @@ QMap<QString, QString>& CheckDealsParam (QMap<QString, QString>& date) {
             date["price_out_tn"] = QString::number(price_tn);
         }
     }
+    if (date.contains("litres") && date.contains("plotnost") && date.contains("ves")) {
+        double lit = date.value("litres").toDouble();
+        double plot = date.value("plotnost").toDouble();
+        double ves = date.value("ves").toDouble();
+        if (lit == 0 && plot != 0 && ves != 0) {
+            lit = ves / plot;
+            date["litres"] = QString::number(lit,'f',0);
+        }
+        else if (lit != 0 && plot == 0 && ves != 0) {
+            plot = ves / lit;
+            date["plotnost"] = QString::number(lit,'f',3);
+        }
+        else if (lit != 0 && plot != 0 && ves == 0) {
+            ves = lit * plot;
+            date["ves"] = QString::number(lit,'f',0);
+        }
+
+    }
+
+
+    // проверить если приход на базу далее не выполнять
+    QString command = "SELECT customer FROM deals WHERE id = '" + date.value("id") + "'";
+    if (auto query = ExecuteSQL(command)) {
+        if(query.value().next()) {
+            if (query.value().value(0).toString().indexOf("НБ") == 0) {
+                date["rentab_tn"] = "0";
+                date["profit"] = "0";
+                return date;
+            }
+        }
+    }
+
+
     double mass = 0;
     mass = date.value("ves").toDouble(); // вес
     if (mass != 0) { // проверить деление на ноль
@@ -241,6 +297,8 @@ MainWindow::MainWindow( QWidget *parent)
     , ui(new Ui::MainWindow)
     , cl_enc(&setting_file_)
 {
+
+
     ui->setupUi(this);
 
     createConnection();
@@ -285,7 +343,11 @@ void MainWindow::UpdateSQLString (const QString& storage, const QMap<QString, QS
 
         if (i.key() != "id") {
             begin = false;
-            command += i.key() + " = '" + i.value() + "'";
+            command += i.key();
+            command += " = '";
+            command += i.value();
+            command += "'";
+            //command += i.key() + " = '" + i.value() + "'";
         }
 
     }
@@ -617,24 +679,24 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     return false;
 }
 
-void MainWindow::UpdateModelDeals () {
-    if (auto query = ExecuteSQL("SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, "
-                                "tovar_short_name, litres, plotnost, ves, price_in_tn, price_out_tn, "
-                                "price_out_litres, transp_cost_tn, commission, rentab_tn, profit,manager, "
-                                "id FROM deals ORDER BY date_of_deal, id")) {
-        int row_count = 0;
-        while(query.value().next()){
-            for (auto i = 0; i < 18; ++i) {
-                // добавить условие если новое значение не равно старому
-                auto temp = query.value().value(i).toString();
-                if (model->item(row_count, i)->data(Qt::DisplayRole).toString() != temp) {
-                    model->setItem(row_count, i, new QStandardItem(query.value().value(i).toString()));
-                }
-            }
-            ++row_count;
-        }
-    }
-}
+// void MainWindow::UpdateModelDeals () {
+//     if (auto query = ExecuteSQL("SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, "
+//                                 "tovar_short_name, litres, plotnost, ves, price_in_tn, price_out_tn, "
+//                                 "price_out_litres, transp_cost_tn, commission, rentab_tn, profit,manager, "
+//                                 "id FROM deals ORDER BY date_of_deal, id")) {
+//         int row_count = 0;
+//         while(query.value().next()){
+//             for (auto i = 0; i < 18; ++i) {
+//                 // добавить условие если новое значение не равно старому
+//                 auto temp = query.value().value(i).toString();
+//                 if (model->item(row_count, i)->data(Qt::DisplayRole).toString() != temp) {
+//                     model->setItem(row_count, i, new QStandardItem(query.value().value(i).toString()));
+//                 }
+//             }
+//             ++row_count;
+//         }
+//     }
+// }
 
 void MainWindow::on_pushButton_deals_clicked()
 {
@@ -713,29 +775,33 @@ void MainWindow::on_pushButton_deals_clicked()
 
                         }
 
-                        if (vect.value(column) == "litres" || vect.value(column) == "plotnost" || vect.value(column) == "ves" ||
-                            vect.value(column) == "price_in_tn" || vect.value(column) == "price_out_tn" || vect.value(column) == "price_out_litres" ||
-                            vect.value(column) == "transp_cost_tn" || vect.value(column) == "commission" ) {
-                            double mass = model->item(row, 8)->text().toDouble(); // вес
-                            if (mass != 0) { // проверить деление на ноль
-                            double price_tn_prod = model->item(row, 10)->text().toDouble(); // цена продажи тонна
-                            double price_tn_vhod = model->item(row, 9)->text().toDouble(); // цена покупки тонна
+                        if (model->item(row, 1)->data(Qt::DisplayRole).toString().indexOf("НБ") != 0 ) {
+                            if (vect.value(column) == "litres" || vect.value(column) == "plotnost" || vect.value(column) == "ves" ||
+                                vect.value(column) == "price_in_tn" || vect.value(column) == "price_out_tn" || vect.value(column) == "price_out_litres" ||
+                                vect.value(column) == "transp_cost_tn" || vect.value(column) == "commission" ) {
+                                double mass = model->item(row, 8)->text().toDouble(); // вес
+                                if (mass != 0) { // проверить деление на ноль
+                                    double price_tn_prod = model->item(row, 10)->text().toDouble(); // цена продажи тонна
+                                    double price_tn_vhod = model->item(row, 9)->text().toDouble(); // цена покупки тонна
 
-                            double commission = model->item(row, 13)->text().toDouble(); // комиссионные всего, не за тонну
-                            double transport = model->item(row, 12)->text().toDouble(); // транспорт за рейс
-                            double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
-                            rentab = round(rentab*100)/100;
-                            double summ_rentab = rentab * (mass/1000);
-                            QString ren =  {"UPDATE " + table_name + " SET rentab_tn = '" + QString::number(rentab) + "', profit = '" + QString::number(summ_rentab) + "' WHERE id = " + id_string};
-                            ExecuteSQL(ren);
+                                    double commission = model->item(row, 13)->text().toDouble(); // комиссионные всего, не за тонну
+                                    double transport = model->item(row, 12)->text().toDouble(); // транспорт за рейс
+
+                                    double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
+                                    rentab = round(rentab*100)/100;
+                                    double summ_rentab = rentab * (mass/1000);
+                                    QString ren =  {"UPDATE " + table_name + " SET rentab_tn = '" + QString::number(rentab) + "', profit = '" + QString::number(summ_rentab) + "' WHERE id = " + id_string};
+                                    ExecuteSQL(ren);
+                                }
                             }
                         }
+
                         QString qout =  {"UPDATE " + table_name + " SET " + vect.value(column) + " = '" + new_text + "' WHERE id = " + id_string};
                         ExecuteSQL(qout);
                         StorageAdding(id_string, new_text);
-                        //index_row_change_item = item->index().row();
-                        //on_pushButton_deals_clicked();
-                        UpdateModelDeals ();
+                        index_row_change_item = item->index().row();
+                        on_pushButton_deals_clicked();
+                        //UpdateModelDeals ();
                     });
 
 
@@ -748,13 +814,13 @@ void MainWindow::on_pushButton_deals_clicked()
         ui->tableView->scrollTo(bottomLeft);
         first_launch = false;
     }
-    // else {
-    //     if (index_row_change_item > 0) {
-    //         QModelIndex position = model->index(index_row_change_item, 0);
-    //         ui->tableView->scrollTo(position);
-    //         index_row_change_item = -1; //сброс индекса
-    //     }
-    // }
+    else {
+        if (index_row_change_item > 0) {
+            QModelIndex position = model->index(index_row_change_item, 0);
+            ui->tableView->scrollTo(position);
+            index_row_change_item = -1; //сброс индекса
+        }
+    }
     connect(ui->tableView->selectionModel(),
             SIGNAL(selectionChanged(QItemSelection, QItemSelection)),
             this,
@@ -1288,9 +1354,18 @@ void MainWindow::CheckStorages() {
 
     command = "SELECT id FROM deals WHERE customer LIKE 'НБ%' OR postavshik LIKE 'НБ%' ORDER BY date_of_deal ASC, id ASC";
     QVector<QString> vect_deals;
+    QMap<QString, QString> dant {};
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
             vect_deals.push_back( query.value().value(0).toString() ); // первое value это от optional
+        }
+    }
+
+    command = "SELECT id FROM deals ORDER BY date_of_deal ASC, id ASC";
+    if (auto query = ExecuteSQL(command)) {
+        while(query.value().next()) {
+            auto date = CheckDealsParam(query.value().value(0).toString());
+            UpdateSQLString ("deals", date);
         }
     }
     QString empty_stroke{};
@@ -1298,4 +1373,8 @@ void MainWindow::CheckStorages() {
         StorageAdding(id_deals, empty_stroke);
     }
 
+    //проверить deals
+
+
 }
+

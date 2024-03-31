@@ -194,7 +194,7 @@ QMap<QString, QString>& MainWindow::CheckDealsParam (QMap<QString, QString>& dat
         double ves = date.value("ves").toDouble();
         if (lit == 0 && plot != 0 && ves != 0) {
             lit = ves / plot;
-            date["litres"] = QString::number(lit,'f',0);
+            date["litres"] = QString::number(qRound(lit));
         }
         else if (lit != 0 && plot == 0 && ves != 0) {
             plot = ves / lit;
@@ -202,7 +202,7 @@ QMap<QString, QString>& MainWindow::CheckDealsParam (QMap<QString, QString>& dat
         }
         else if (lit != 0 && plot != 0 && ves == 0) {
             ves = lit * plot;
-            date["ves"] = QString::number(lit,'f',0);
+            date["ves"] = QString::number(qRound(ves));
         }
 
     }
@@ -757,60 +757,70 @@ void MainWindow::on_pushButton_deals_clicked()
                         QString table_name {"deals"};
                         int id_number_column = 17;
                         QString id_string = FindID(row, id_number_column).toString();
-
                         QString new_text = item->text();
                         if (vect.value(column) == "plotnost" || vect.value(column) == "price_out_litres") {
                             new_text.replace(',', '.'); // убрать запятую если плотность или цена в литрах
                         }
-                        if (vect.value(column) == "price_out_litres") {
-                            double plot = model->item(row, 7)->text().toDouble(); // если плотность не равна 0
-                            if (plot != 0) {
-                                double price = model->item(row, 10)->text().toDouble();
-                                double new_price = (new_text.toDouble()/plot) * 1000;
-                                // округлить до целого
-                                new_price = round(new_price*100)/100;
-                                QString pr_tn =  {"UPDATE " + table_name + " SET price_out_tn = '" + QString::number(new_price) + "' WHERE id = " + id_string};
-                                ExecuteSQL(pr_tn);
-                            }
-                        }
-                        if (vect.value(column) == "plotnost") {
-                            double price_lt = model->item(row, 11)->text().toDouble(); // если цена за литр не равна 0
-                            if (price_lt != 0) {
-                                double price_tn = price_lt / new_text.toDouble() * 1000;
-                                price_tn = round(price_tn*100)/100;
-                                QString pr_tn =  {"UPDATE " + table_name + " SET price_out_tn = '" + QString::number(price_tn) + "' WHERE id = " + id_string};
-                                ExecuteSQL(pr_tn);
-                            }
-
-                        }
-
-                        if (model->item(row, 1)->data(Qt::DisplayRole).toString().indexOf("НБ") != 0 ) {
-                            if (vect.value(column) == "litres" || vect.value(column) == "plotnost" || vect.value(column) == "ves" ||
-                                vect.value(column) == "price_in_tn" || vect.value(column) == "price_out_tn" || vect.value(column) == "price_out_litres" ||
-                                vect.value(column) == "transp_cost_tn" || vect.value(column) == "commission" ) {
-                                double mass = model->item(row, 8)->text().toDouble(); // вес
-                                if (mass != 0) { // проверить деление на ноль
-                                    double price_tn_prod = model->item(row, 10)->text().toDouble(); // цена продажи тонна
-                                    double price_tn_vhod = model->item(row, 9)->text().toDouble(); // цена покупки тонна
-
-                                    double commission = model->item(row, 13)->text().toDouble(); // комиссионные всего, не за тонну
-                                    double transport = model->item(row, 12)->text().toDouble(); // транспорт за рейс
-
-                                    double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
-                                    rentab = round(rentab*100)/100;
-                                    double summ_rentab = rentab * (mass/1000);
-                                    QString ren =  {"UPDATE " + table_name + " SET rentab_tn = '" + QString::number(rentab) + "', profit = '" + QString::number(summ_rentab) + "' WHERE id = " + id_string};
-                                    ExecuteSQL(ren);
-                                }
-                            }
-                        }
-
-                        QString qout =  {"UPDATE " + table_name + " SET " + vect.value(column) + " = '" + new_text + "' WHERE id = " + id_string};
-                        ExecuteSQL(qout);
+                        QMap <QString, QString> date;
+                        date ["id"] = id_string;
+                        date [vect.value(column)] = new_text;
+                        UpdateSQLString ("deals", date);
+                        date = CheckDealsParam(id_string);
+                        UpdateSQLString ("deals", date);
                         StorageAdding(id_string, new_text);
                         index_row_change_item = item->index().row();
                         on_pushButton_deals_clicked();
-                        //UpdateModelDeals ();
+
+
+                        // if (vect.value(column) == "price_out_litres") {
+                        //     double plot = model->item(row, 7)->text().toDouble(); // если плотность не равна 0
+                        //     if (plot != 0) {
+                        //         double price = model->item(row, 10)->text().toDouble();
+                        //         double new_price = (new_text.toDouble()/plot) * 1000;
+                        //         // округлить до целого
+                        //         new_price = round(new_price*100)/100;
+                        //         QString pr_tn =  {"UPDATE " + table_name + " SET price_out_tn = '" + QString::number(new_price) + "' WHERE id = " + id_string};
+                        //         ExecuteSQL(pr_tn);
+                        //     }
+                        // }
+                        // if (vect.value(column) == "plotnost") {
+                        //     double price_lt = model->item(row, 11)->text().toDouble(); // если цена за литр не равна 0
+                        //     if (price_lt != 0) {
+                        //         double price_tn = price_lt / new_text.toDouble() * 1000;
+                        //         price_tn = round(price_tn*100)/100;
+                        //         QString pr_tn =  {"UPDATE " + table_name + " SET price_out_tn = '" + QString::number(price_tn) + "' WHERE id = " + id_string};
+                        //         ExecuteSQL(pr_tn);
+                        //     }
+
+                        // }
+
+                        // if (model->item(row, 1)->data(Qt::DisplayRole).toString().indexOf("НБ") != 0 ) {
+                        //     if (vect.value(column) == "litres" || vect.value(column) == "plotnost" || vect.value(column) == "ves" ||
+                        //         vect.value(column) == "price_in_tn" || vect.value(column) == "price_out_tn" || vect.value(column) == "price_out_litres" ||
+                        //         vect.value(column) == "transp_cost_tn" || vect.value(column) == "commission" ) {
+                        //         double mass = model->item(row, 8)->text().toDouble(); // вес
+                        //         if (mass != 0) { // проверить деление на ноль
+                        //             double price_tn_prod = model->item(row, 10)->text().toDouble(); // цена продажи тонна
+                        //             double price_tn_vhod = model->item(row, 9)->text().toDouble(); // цена покупки тонна
+
+                        //             double commission = model->item(row, 13)->text().toDouble(); // комиссионные всего, не за тонну
+                        //             double transport = model->item(row, 12)->text().toDouble(); // транспорт за рейс
+
+                        //             double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
+                        //             rentab = round(rentab*100)/100;
+                        //             double summ_rentab = rentab * (mass/1000);
+                        //             QString ren =  {"UPDATE " + table_name + " SET rentab_tn = '" + QString::number(rentab) + "', profit = '" + QString::number(summ_rentab) + "' WHERE id = " + id_string};
+                        //             ExecuteSQL(ren);
+                        //         }
+                        //     }
+                        // }
+
+                        // QString qout =  {"UPDATE " + table_name + " SET " + vect.value(column) + " = '" + new_text + "' WHERE id = " + id_string};
+                        // ExecuteSQL(qout);
+                        // StorageAdding(id_string, new_text);
+                        // index_row_change_item = item->index().row();
+                        // on_pushButton_deals_clicked();
+                        // //UpdateModelDeals ();
                     });
 
 

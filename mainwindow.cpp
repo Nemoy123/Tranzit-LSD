@@ -194,7 +194,7 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
         double ves = date.value("ves").toDouble();
         if (lit == 0 && plot != 0 && ves != 0) {
             lit = ves / plot;
-            date["litres"] = QString::number(qRound(lit));
+            date["litres"] = QString::number(lit,'f',2);
         }
         else if (lit != 0 && plot == 0 && ves != 0) {
             plot = ves / lit;

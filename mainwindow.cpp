@@ -18,6 +18,8 @@
 #include <QTextStream>
 #include <QFileInfo>
 #include <QCryptographicHash>
+#include <QFont>
+
 
 
 
@@ -824,8 +826,9 @@ void MainWindow::on_pushButton_deals_clicked()
                     });
 
 
-    ui->tableView->setWordWrap(1);
-    ui->tableView->setModel(model); //устанавливает перенос слов
+    ui->tableView->setWordWrap(1); //устанавливает перенос слов
+    ui->tableView->setModel(model);
+    ui->tableView->setFont(current_table_view_font); // меняем шрифт
     ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
     if (first_launch) {
         //прокрутка вниз влево
@@ -1134,8 +1137,20 @@ void MainWindow::on_settings_triggered()
     if (!(connect ( set_window, &SettingWindow::signal_check_store, this, &MainWindow::CheckStorages ) ) ) {
         qDebug() << "connect check_store false";
     }
+    if (!(connect ( set_window, &SettingWindow::signal_font_change, this, &MainWindow::ChangeTableFont ) ) ) {
+        qDebug() << "connect font change false";
+    }
+    if (!(connect ( set_window, &SettingWindow::signal_font_default, this, &MainWindow::CheckCurrentFont ) ) ) {
+        qDebug() << "connect font default false";
+    }
+    if (!(connect ( this, &MainWindow::signal_return_font, set_window, &SettingWindow::ChangeCurrentTableFont ) ) ) {
+        qDebug() << "connect current font return false";
+    }
 
     set_window->exec();
+
+
+   // auto current_font_table = ui->tableView->property("font").value<QFont>();
 
 
 }
@@ -1397,5 +1412,21 @@ void MainWindow::CheckStorages() {
     //проверить deals
 
 
+}
+
+void MainWindow::ChangeTableFont(QString font_name, QString font_size)
+{
+    QFont font(font_name, font_size.toInt()); //, QFont::Bold
+    //ui->tableView->setFont(font);
+    //ui->tableView->setProperty("font", font);
+    current_table_view_font = font;
+    ui->tableView->setFont(current_table_view_font);
+}
+
+void MainWindow::CheckCurrentFont()
+{
+    //QFont current_font_table = ui->tableView->property("font").value<QFont>();
+    //SettingWindow::ChangeCurrentTableFont(current_table_view_font);
+    emit signal_return_font(current_table_view_font);
 }
 

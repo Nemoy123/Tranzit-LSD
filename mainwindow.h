@@ -78,6 +78,11 @@ private slots:
     void on_pushButton_paste_clicked();
 
     void CheckStorages();
+    void ChangeTableFont(QString font_name, QString font_size);
+    void CheckCurrentFont();
+
+signals:
+    void signal_return_font (QFont font);
 
 private:
     bool LoadConfig ();
@@ -124,5 +129,7 @@ private:
     // void UpdateModelDeals ();
     QMap<QString, QString> CheckDealsParam (QMap<QString, QString>& date);
     QMap<QString, QString> CheckDealsParam (const QString& id_deals);
+
+    QFont current_table_view_font = QFont("Segoe UI", 10);
 };
 #endif // MAINWINDOW_H

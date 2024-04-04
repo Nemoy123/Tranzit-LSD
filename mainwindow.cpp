@@ -67,16 +67,29 @@ bool MainWindow::LoadConfig () {
         QFile file(setting_file_);
         if (file.open(QIODevice::ReadOnly)) {
             QTextStream streamstring(&file);
-            //QString text = streamstring.readAll();
+
             QString text = cl_enc.decrypt();
-            //if (streamstring.string() == nullptr) {return false;}
+
             QStringList list = text.split("?");
-            if (list.size() != 6) {return false;}
-            server_ = list.at(0);
-            port_ = list.at(1).toInt();
-            base_name_ = list.at(2);
-            login_ = list.at(3);
-            pass_ = list.at(4);
+            QString font_name{};
+            QString font_size{};
+
+            int counter = 0;
+            for (const auto& item : list) {
+                if (counter == 0) { server_ = item;}
+                else if (counter == 1) { port_ = item.toInt();}
+                else if (counter == 2) { base_name_ = item;}
+                else if (counter == 3) { login_ = item;}
+                else if (counter == 4) { pass_ = item;}
+                else if (counter == 5) { font_name = item;}
+                else if (counter == 6) { font_size = item;}
+
+                ++counter;
+            }
+            if (!font_name.isEmpty() && !font_size.isEmpty()) {
+                current_table_view_font = QFont (font_name, font_size.toInt());
+            }
+
             file.close();
             return true;
         }
@@ -1108,6 +1121,15 @@ void MainWindow::ShowStorages(const QString& store) {
 
 }
 
+void MainWindow::SaveSettings () {
+    QString buffer{};
+    QTextStream stream(&buffer);
+    stream << server_<<"?"<<port_<<"?"<<base_name_<<"?"<<login_<<"?"<<pass_<<"?"<<
+        current_table_view_font.family()<<"?"<<current_table_view_font.pointSize();
+
+     cl_enc.encrypt(stream.readAll());
+}
+
 void MainWindow::ChangeSettingServer(const QMap<QString, QString>& map_set) {
     if (db_.isOpen()) {
         db_.close();
@@ -1422,6 +1444,7 @@ void MainWindow::ChangeTableFont(QString font_name, QString font_size)
     //ui->tableView->setProperty("font", font);
     current_table_view_font = font;
     ui->tableView->setFont(current_table_view_font);
+    SaveSettings ();
 }
 
 void MainWindow::CheckCurrentFont()

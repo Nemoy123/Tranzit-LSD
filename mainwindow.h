@@ -97,6 +97,7 @@ private:
     QString setting_file_ = "settings.lsd";
     Encdec cl_enc;
     void ChangeSettingServer(const QMap<QString, QString>& map_set);
+    void SaveSettings ();
 
     QVariant FindID (int row, int column);
     void UpdateListStorage();

@@ -1097,6 +1097,7 @@ void MainWindow::ShowStorages(const QString& store) {
 
 
     ui->tableView->setModel(model_storages_);
+    ui->tableView->setFont(current_table_view_font); // меняем шрифт
     ui->tableView->setWordWrap(1); //устанавливает перенос слов
     ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
     //ui->tableView->setEditTriggers(QAbstractItemView::NoEditTriggers); // запрет редактирования

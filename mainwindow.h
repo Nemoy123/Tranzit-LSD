@@ -12,6 +12,32 @@
 #include <set>
 #include "settingwindow.h"
 #include <QFile>
+#include <QStyledItemDelegate>
+#include <QComboBox>
+#include <QItemDelegate>
+
+// Делегат для комбобокса внутри tableview
+class ComboBoxDelegate : public QItemDelegate
+{
+    Q_OBJECT
+
+public:
+    ComboBoxDelegate(QObject *parent = 0, std::vector < std::vector<QString> >* vect = nullptr);
+
+    QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                          const QModelIndex &index) const;
+
+    void setEditorData(QWidget *editor, const QModelIndex &index) const;
+    void setModelData(QWidget *editor, QAbstractItemModel *model,
+                      const QModelIndex &index) const;
+
+    void updateEditorGeometry(QWidget *editor,
+                              const QStyleOptionViewItem &option, const QModelIndex &index) const;
+private:
+    std::vector < std::vector<QString> >* vect_;
+};
+//конец делегата
+
 
 
 class Encdec {
@@ -132,5 +158,9 @@ private:
     QMap<QString, QString> CheckDealsParam (const QString& id_deals);
 
     QFont current_table_view_font = QFont("Segoe UI", 10);
+
+    std::map <QString, QString> filter_deals{};
+    std::vector < std::vector<QString> > vect_deals_filters{};
+
 };
 #endif // MAINWINDOW_H

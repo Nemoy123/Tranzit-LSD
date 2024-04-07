@@ -19,18 +19,21 @@
 #include <QFileInfo>
 #include <QCryptographicHash>
 #include <QFont>
-
+#include <QScrollBar>
 
 ComboBoxDelegate::ComboBoxDelegate(QObject *parent, std::vector < std::vector<QString> >* vect)
     : QItemDelegate(parent)
     , vect_(vect)
-    {}
+    {
+
+    }
 
 QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
                                         const QStyleOptionViewItem &/* option */,
                                         const QModelIndex & index ) const
 {
     QComboBox *editor = new QComboBox(parent);
+
     editor->addItem("Все");
     if (vect_ != nullptr) {
         for (const auto& item: (*vect_).at(index.column())) {
@@ -39,7 +42,17 @@ QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
     } else {
         qDebug() << "Error combobox delegate";
     }
+    //editor->setCurrentIndex(editor->findText("Все"));
+    QComboBox *cBox = static_cast<QComboBox*>(editor);
+    cBox->setCurrentIndex(cBox->findText("Все"));
+    // QStandardItemModel* model =
+    //     qobject_cast<QStandardItemModel*>(editor->model());
+    // QModelIndex firstIndex = model->index(0, editor->modelColumn(),
+    //                                       editor->rootModelIndex());
+    // QStandardItem* firstItem = model->itemFromIndex(firstIndex);
+    // firstItem->setSelectable(false);
 
+    editor->setEditable(false);
     return editor;
 }
 
@@ -57,10 +70,28 @@ void ComboBoxDelegate::setModelData(QWidget *editor, QAbstractItemModel *model,
 {
     QComboBox *cBox = static_cast<QComboBox*>(editor);
     QString value = cBox->currentText();
-
-    model->setData(index, value, Qt::EditRole);
+    if (!value.isEmpty()) {
+        model->setData(index, value, Qt::EditRole);
+    }
 }
+void ComboBoxDelegate::paint (QPainter* painter, const QStyleOptionViewItem& option,
+                                const QModelIndex& index) const
+{
 
+
+    QStyleOptionComboBox box;
+    box.state = option.state;
+
+    box.rect = option.rect;
+    //box.currentText = index.data(Qt::EditRole).toString();
+    box.currentText = "Все";
+
+    QApplication::style()->drawComplexControl(QStyle::CC_ComboBox, &box, painter, 0);
+    QApplication::style()->drawControl(QStyle::CE_ComboBoxLabel, &box, painter, 0);
+    return;
+
+   // QStyledItemDelegate::paint(painter, option, index);
+}
 void ComboBoxDelegate::updateEditorGeometry(QWidget *editor,
                                             const QStyleOptionViewItem &option, const QModelIndex &/* index */) const
 {
@@ -234,6 +265,8 @@ QMap<QString, QString> MainWindow::CheckDealsParam (const QString& id_deals) {
 
 
 }
+
+
 
 
 QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date) {
@@ -753,28 +786,34 @@ void MainWindow::on_pushButton_deals_clicked()
 {
     ui->buttons_action->setVisible(true);
     ui->comboBox_filter->addItem("Все");
+    ui->tableView_header->show();
+
+    model_header_ = new QStandardItemModel(1, 18);
+    // установка заголовков таблицы
+    model_header_->setHeaderData(0, Qt::Horizontal, "Дата");
+    model_header_->setHeaderData(1, Qt::Horizontal, "Клиент");
+    model_header_->setHeaderData(2, Qt::Horizontal, "Номер УПД");
+    model_header_->setHeaderData(3, Qt::Horizontal, "Поставщик");
+    model_header_->setHeaderData(4, Qt::Horizontal, "Нефтебаза");
+    model_header_->setHeaderData(5, Qt::Horizontal, "Товар");
+    model_header_->setHeaderData(6, Qt::Horizontal, "Объем, л");
+    model_header_->setHeaderData(7, Qt::Horizontal, "Плотность");
+    model_header_->setHeaderData(8, Qt::Horizontal, "Вес,\n кг");
+    model_header_->setHeaderData(9, Qt::Horizontal, "Цена входа,\n р\\тн");
+    model_header_->setHeaderData(10, Qt::Horizontal, "Цена продажи,\n р\\тн");
+    model_header_->setHeaderData(11, Qt::Horizontal, "Цена продажи,\n р\\л");
+    model_header_->setHeaderData(12, Qt::Horizontal, "Трансп затраты,\n за рейс");
+    model_header_->setHeaderData(13, Qt::Horizontal, "Комиссии");
+    model_header_->setHeaderData(14, Qt::Horizontal, "Прибыль\n на тонну");
+    model_header_->setHeaderData(15, Qt::Horizontal, "Прибыль\n сумма");
+    model_header_->setHeaderData(16, Qt::Horizontal, "Менеджер");
+    model_header_->setHeaderData(17, Qt::Horizontal, "ID");
+
 
     model =  new QStandardItemModel(10, 18);
-    // установка заголовков таблицы
 
-    model->setHeaderData(0, Qt::Horizontal, "Дата");
-    model->setHeaderData(1, Qt::Horizontal, "Клиент");
-    model->setHeaderData(2, Qt::Horizontal, "Номер УПД");
-    model->setHeaderData(3, Qt::Horizontal, "Поставщик");
-    model->setHeaderData(4, Qt::Horizontal, "Нефтебаза");
-    model->setHeaderData(5, Qt::Horizontal, "Товар");
-    model->setHeaderData(6, Qt::Horizontal, "Объем, л");
-    model->setHeaderData(7, Qt::Horizontal, "Плотность");
-    model->setHeaderData(8, Qt::Horizontal, "Вес, кг");
-    model->setHeaderData(9, Qt::Horizontal, "Цена входа, р\\тн");
-    model->setHeaderData(10, Qt::Horizontal, "Цена продажи, р\\тн");
-    model->setHeaderData(11, Qt::Horizontal, "Цена продажи, р\\л");
-    model->setHeaderData(12, Qt::Horizontal, "Трансп затраты, за рейс");
-    model->setHeaderData(13, Qt::Horizontal, "Комиссии");
-    model->setHeaderData(14, Qt::Horizontal, "Прибыль на тонну");
-    model->setHeaderData(15, Qt::Horizontal, "Прибыль сумма");
-    model->setHeaderData(16, Qt::Horizontal, "Менеджер");
-    model->setHeaderData(17, Qt::Horizontal, "ID");
+
+
     QString command{};
     if (filter_deals.empty()) {
         command = "SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, "
@@ -796,7 +835,7 @@ void MainWindow::on_pushButton_deals_clicked()
 
     }
     if (std::optional<QSqlQuery> query = ExecuteSQL(command)) {
-            int row_count = 1; // начинаем с 1 строки. 0 строка под комбобоксы
+            int row_count = 0; // начинаем с 1 строки. 0 строка под комбобоксы
             while(query.value().next()){
                 for (auto i = 0; i < 18; ++i) {
                     // QModelIndex ind = model->index(row_count, i);
@@ -812,7 +851,7 @@ void MainWindow::on_pushButton_deals_clicked()
 
         for (int i = 0; i < 18; ++i) {
             std::set <QString> set_date{};
-            for (int y = 1; y < (model->rowCount()-1); ++y) {
+            for (int y = 0; y < (model->rowCount()-1); ++y) {
                 QString temp_stroke = model->item(y, i)->text();
                 set_date.insert(temp_stroke);
             }
@@ -821,7 +860,7 @@ void MainWindow::on_pushButton_deals_clicked()
         }
     }
 
-    //QObject::connect(model, &QAbstractItemModel::dataChanged, [&](QStandardItem* item)
+
     QObject::connect(model, &QStandardItemModel::itemChanged,
                      [&](QStandardItem *item) {
                          qDebug() << "Item changed:" << item->index().row() << item->index().column() << item->text();
@@ -829,46 +868,82 @@ void MainWindow::on_pushButton_deals_clicked()
                                                 "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
                         int column = item->index().column();
                         int row =    item->index().row();
-                        //QString table_name {"deals"};
-                        if (row != 0) {
-                            int id_number_column = 17;
-                            const QString id_string = FindID(row, id_number_column).toString();
-                            QString new_text = item->text();
-                            if (vect.value(column) == "plotnost" || vect.value(column) == "price_out_litres") {
-                                new_text.replace(',', '.'); // убрать запятую если плотность или цена в литрах
-                            }
-                            QMap <QString, QString> date;
-                            date ["id"] = id_string;
-                            date [vect.value(column)] = new_text;
-                            UpdateSQLString ("deals", date);
-                            date = CheckDealsParam(id_string);
-                            UpdateSQLString ("deals", date);
-                            StorageAdding(id_string, new_text);
-                            index_row_change_item = item->index().row();
+                        int id_number_column = 17;
+                        const QString id_string = FindID(row, id_number_column).toString();
+                        QString new_text = item->text();
+                        if (vect.value(column) == "plotnost" || vect.value(column) == "price_out_litres") {
+                            new_text.replace(',', '.'); // убрать запятую если плотность или цена в литрах
                         }
-                        else {
-                            if (item->text() != "Все") {
-                                filter_deals[vect.at(column)] = item->text();
-                            } else {
-                                filter_deals.erase(vect.at(column));
-                            }
-                        }
+                        QMap <QString, QString> date;
+                        date ["id"] = id_string;
+                        date [vect.value(column)] = new_text;
+                        UpdateSQLString ("deals", date);
+                        date = CheckDealsParam(id_string);
+                        UpdateSQLString ("deals", date);
+                        StorageAdding(id_string, new_text);
+                        index_row_change_item = item->index().row();
                         on_pushButton_deals_clicked();
 
                     });
+    QObject::connect(model_header_, &QStandardItemModel::itemChanged,
+                     [&](QStandardItem *item) {
+                        QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                                                "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
+                        int column = item->index().column();
+                        //int row =    item->index().row();
+                        if (item->text() != "Все") {
+                            filter_deals[vect.at(column)] = item->text();
+                        } else {
+                            filter_deals.erase(vect.at(column));
+                        }
+                        on_pushButton_deals_clicked();
+    });
 
+
+    QObject::connect(ui->tableView->horizontalScrollBar(), &QScrollBar::sliderMoved, ui->tableView_header->horizontalScrollBar(), &QScrollBar::setValue);
 
     ui->tableView->setWordWrap(1); //устанавливает перенос слов
     ui->tableView->setModel(model);
     ui->tableView->setFont(current_table_view_font); // меняем шрифт
+
+    //ui->tableView->setSortingEnabled(true);
+    ui->tableView->verticalHeader()->setVisible(false); // отключить номерацию строк
+    ui->tableView_header->verticalHeader()->setVisible(false); // отключить номерацию строк
+    ui->tableView_header->setModel(model_header_);
+
+    ui->tableView_header->horizontalHeader()->setFont(current_table_view_font);
+    ui->tableView_header->setFont(current_table_view_font);
+    ui->tableView_header->setItemDelegateForRow(0, new ComboBoxDelegate(model_header_, &vect_deals_filters));
+
+    // for (int i = 0; i < 18; ++i) {
+    //     ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
+    //     int width_col = ui->tableView->columnWidth(i);
+    //     ui->tableView_header->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
+    //     int width_col_h = ui->tableView_header->columnWidth(i);
+    //     ui->tableView_header->setColumnWidth(i, std::max(width_col, width_col_h));
+    //     ui->tableView->setColumnWidth(i, std::max(width_col, width_col_h));
+    // }
     ui->tableView->resizeColumnsToContents(); // адаптирует размер всех столбцов к содержимому
+    std::vector<int> vect_main;
 
+    for (int i = 0; i < 18; ++i) {
+        vect_main.push_back(ui->tableView->columnWidth(i));
+    }
+    ui->tableView_header->horizontalHeader()->resizeSections(QHeaderView::ResizeToContents); // адаптирует размер заголовка к содержимому
+    std::vector<int> vect_head;
+    for (int i = 0; i < 18; ++i) {
+        vect_head.push_back(ui->tableView_header->columnWidth(i));
 
+    }
 
-    ui->tableView->setItemDelegateForRow(0, new ComboBoxDelegate(model, &vect_deals_filters));
+    QObject::connect(ui->tableView->horizontalHeader(), &QHeaderView::sectionResized, this, &MainWindow::HorizontSizeChange);
+    QObject::connect(ui->tableView_header->horizontalHeader(), &QHeaderView::sectionResized, this, &MainWindow::HorizontSizeChangeHeader);
 
-    //model->setItem(0, 0, setItemDelegate(new ComboBoxDelegate(model));
-    //pView->setItemDelegate(new ComboBoxDelegate(pView));
+    for (int i = 0; i < 18; ++i) {
+        ui->tableView_header->setColumnWidth(i, std::max(vect_head.at(i), vect_main.at(i)));
+        ui->tableView->setColumnWidth(i, std::max(vect_head.at(i), vect_main.at(i)));
+    }
+
 
     if (first_launch) {
         //прокрутка вниз влево
@@ -1045,8 +1120,9 @@ void MainWindow::ShowStorages(const QString& store) {
         QMessageBox::critical(0, "Cannot open database", "Unable to establish a database connection", QMessageBox::Cancel);
         return;
     }
-
-
+    ui->tableView_header->hide();
+    ui->tableView->verticalHeader()->setVisible(true); // включить номерацию строк
+    ui->tableView->horizontalHeader()->setFont(current_table_view_font);
     // вывести строку с названием товара
     // вывести таблицу 1
     // вывести пустую строку
@@ -1479,5 +1555,20 @@ void MainWindow::CheckCurrentFont()
     //QFont current_font_table = ui->tableView->property("font").value<QFont>();
     //SettingWindow::ChangeCurrentTableFont(current_table_view_font);
     emit signal_return_font(current_table_view_font);
+}
+
+void MainWindow::HorizontSizeChange(int logicalIndex, int oldSize, int newSize)
+{
+
+        //int width_col = ui->tableView->columnWidth(logicalIndex);
+        ui->tableView_header->setColumnWidth(logicalIndex, newSize);
+
+}
+void MainWindow::HorizontSizeChangeHeader(int logicalIndex, int oldSize, int newSize)
+{
+
+    //int width_col = ui->tableView->columnWidth(logicalIndex);
+    ui->tableView->setColumnWidth(logicalIndex, newSize);
+
 }
 

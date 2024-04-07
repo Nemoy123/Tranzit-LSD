@@ -30,7 +30,8 @@ public:
     void setEditorData(QWidget *editor, const QModelIndex &index) const;
     void setModelData(QWidget *editor, QAbstractItemModel *model,
                       const QModelIndex &index) const;
-
+    void paint (QPainter* painter, const QStyleOptionViewItem& option,
+                const QModelIndex& index) const;
     void updateEditorGeometry(QWidget *editor,
                               const QStyleOptionViewItem &option, const QModelIndex &index) const;
 private:
@@ -106,6 +107,8 @@ private slots:
     void CheckStorages();
     void ChangeTableFont(QString font_name, QString font_size);
     void CheckCurrentFont();
+    void HorizontSizeChange(int logicalIndex, int oldSize, int newSize);
+    void HorizontSizeChangeHeader(int logicalIndex, int oldSize, int newSize);
 
 signals:
     void signal_return_font (QFont font);
@@ -130,6 +133,7 @@ private:
     void ShowStorages(const QString& store);
     Ui::MainWindow *ui;
     QStandardItemModel* model;
+    QStandardItemModel* model_header_;
     QStandardItemModel* model_storages_;
     std::optional<QSqlQuery> ExecuteSQL(const QString& command);
     QString  AddRowSQLString (const QString& storage, QMap<QString, QString>& date_);

@@ -22,7 +22,7 @@ class ComboBoxDelegate : public QItemDelegate
     Q_OBJECT
 
 public:
-    ComboBoxDelegate(QObject *parent = 0, std::vector < std::vector<QString> >* vect = nullptr);
+    ComboBoxDelegate(QObject *parent = 0, std::vector < std::vector<QString> >* vect = nullptr, std::map <QString, QString>* filter_deals = nullptr);
 
     QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
                           const QModelIndex &index) const;
@@ -36,6 +36,7 @@ public:
                               const QStyleOptionViewItem &option, const QModelIndex &index) const;
 private:
     std::vector < std::vector<QString> >* vect_;
+    std::map <QString, QString>* filter_deals_;
 };
 //конец делегата
 
@@ -110,6 +111,10 @@ private slots:
     void HorizontSizeChange(int logicalIndex, int oldSize, int newSize);
     void HorizontSizeChangeHeader(int logicalIndex, int oldSize, int newSize);
 
+    void on_pushButton_enter_filtr_clicked();
+
+    void on_pushButton_filtr_default_clicked();
+
 signals:
     void signal_return_font (QFont font);
 
@@ -165,6 +170,11 @@ private:
 
     std::map <QString, QString> filter_deals{};
     std::vector < std::vector<QString> > vect_deals_filters{};
-
+    //std::vector<QString> last_filter_choice_{};
+    QString storages_filter_goods {};
+    QString last_storage_query_ {};
+    QString last_storage_filter_ {};
+    QString FindNextStorageIdFromIdDeals (const QString& id_deals);
+    QString FindDateFromIdDeals (const QString& id_deals);
 };
 #endif // MAINWINDOW_H

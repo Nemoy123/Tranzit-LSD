@@ -157,7 +157,7 @@ QPushButton:pressed {
       <item>
        <widget class="QWidget" name="filter_widget" native="true">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_2">
          <property name="leftMargin">
@@ -175,7 +175,7 @@ QPushButton:pressed {
          <item alignment="Qt::AlignVCenter">
           <widget class="QLabel" name="label">
            <property name="text">
-            <string>Добавить фильтр:</string>
+            <string>Фильтр товара:</string>
            </property>
           </widget>
          </item>

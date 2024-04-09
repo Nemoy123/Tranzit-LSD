@@ -360,6 +360,12 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
             ves = lit * plot;
             date["ves"] = QString::number(qRound(ves));
         }
+        else if (lit != 0 && plot != 0 && ves != 0) {
+            if (ves != lit * plot) {
+                ves = lit * plot;
+                date["ves"] = QString::number(qRound(ves));
+            }
+        }
 
     }
 
@@ -965,7 +971,7 @@ void MainWindow::on_pushButton_deals_clicked()
                         int row =    item->index().row();
                         int id_number_column = 17;
                         const QString id_string = FindID(row, id_number_column).toString();
-                        QString new_text = item->text();
+                        QString new_text = item->text().trimmed(); // убираем пробелы в начала и конце
                         if (vect.value(column) == "plotnost" || vect.value(column) == "price_out_litres") {
                             new_text.replace(',', '.'); // убрать запятую если плотность или цена в литрах
                         }

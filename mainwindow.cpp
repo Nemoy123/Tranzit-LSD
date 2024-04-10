@@ -881,6 +881,15 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     return false;
 }
 
+bool FilterEmptyChecking (const std::map <QString, QString>& filter_deals) {
+    if (filter_deals.empty()) {return true;}
+    for (const auto& [key, value] : filter_deals) {
+        if (value != "Все" && !value.isEmpty()) {
+            return false;
+        }
+    }
+    return true;
+}
 
 void MainWindow::on_pushButton_deals_clicked()
 {
@@ -916,7 +925,9 @@ void MainWindow::on_pushButton_deals_clicked()
 
 
     QString command{};
-    if (filter_deals.empty()) {
+    // добавить проверку фильтра
+
+    if ( FilterEmptyChecking(filter_deals) ) {
         command = "SELECT to_char(date_of_deal, 'DD-MM-YYYY'), customer, number_1c, postavshik, neftebaza, "
                                 "tovar_short_name, litres, plotnost, ves, price_in_tn, price_out_tn, "
                                 "price_out_litres, transp_cost_tn, commission, rentab_tn, profit,manager, "
@@ -946,7 +957,7 @@ void MainWindow::on_pushButton_deals_clicked()
                 ++row_count;
             }
     }
-    if (filter_deals.empty()) {
+    if ( FilterEmptyChecking(filter_deals) ) {
         //std::vector < std::vector<QString> > vect_deals_filters{};
         vect_deals_filters.reserve(18);
 
@@ -1061,12 +1072,24 @@ void MainWindow::on_pushButton_deals_clicked()
 
 }
 
+
 void MainWindow::tableSelectionChanged(QItemSelection, QItemSelection) {
     auto listindexes = ui->tableView->selectionModel()->selectedIndexes();
     index_set_rows.clear();
+    double sum = 0;
+    double sred = 0;
+    int count = 0;
     for (const auto& index : listindexes) {
         index_set_rows.insert(index.row());
+        bool test = false;
+        index.data(Qt::DisplayRole).toDouble(&test);
+        if (test) {
+            sum +=  index.data(Qt::DisplayRole).toDouble();
+            ++count;
+            sred = sum/count;
+        }
     }
+    ui->statusbar->showMessage(" Сумма: " + QString::number(sum) + " Количество элементов: " + QString::number(count) + " Среднее: " + QString::number(sred));
 }
 
 

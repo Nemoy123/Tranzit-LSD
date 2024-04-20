@@ -1014,6 +1014,11 @@ void MainWindow::on_pushButton_deals_clicked()
 
     QObject::connect(ui->tableView->horizontalScrollBar(), &QScrollBar::sliderMoved, ui->tableView_header->horizontalScrollBar(), &QScrollBar::setValue);
 
+    // Устанавливаем Контекстное Меню
+    ui->tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+    // Подключаем СЛОТ вызова контекстного меню
+    connect(ui->tableView, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(slotCustomMenuRequested(QPoint)));
+
     ui->tableView->setWordWrap(1); //устанавливает перенос слов
     ui->tableView->setModel(model);
     ui->tableView->setFont(current_table_view_font); // меняем шрифт
@@ -1739,5 +1744,45 @@ void MainWindow::on_pushButton_filtr_default_clicked()
     last_storage_filter_ = "Все";
     storages_filter_goods.clear();
     ShowStorages(last_storage_query_);
+}
+
+void MainWindow::slotDefaultRecord()
+{
+    int row = ui->tableView->selectionModel()->currentIndex().row();
+    int id_number_column = 17;
+    int column = ui->tableView->selectionModel()->currentIndex().column();
+    const QString id_string = FindID(row, id_number_column).toString();
+    qDebug() << "ID " + id_string;
+    QVector <QString> vect_column_deals {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                          "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
+    QMap<QString, QString> date;
+    date["id"] = id_string;
+    date[vect_column_deals.at(column)] = "0";
+    UpdateSQLString ("deals", std::move(date));
+    //если успешно поменять значение в модели
+    //ui->tableView->selectionModel()->currentIndex().;
+    ui->tableView->model()->setData(ui->tableView->selectionModel()->currentIndex(),"0");
+
+}
+
+void MainWindow::slotCustomMenuRequested(QPoint pos)
+{
+    /* Создаем объект контекстного меню */
+    menu_deals = new QMenu(this);
+    /* Создаём действия для контекстного меню */
+    QAction * editDefault = new QAction("Сбросить", this);
+    /* Подключаем СЛОТы обработчики для действий контекстного меню */
+    connect(editDefault, &QAction::triggered, this, &MainWindow::slotDefaultRecord);     // Обработчик вызова диалога сброса
+    /* Устанавливаем действия в меню */
+    menu_deals->addAction(editDefault);
+    /* Вызываем контекстное меню */
+    menu_deals->popup(ui->tableView->viewport()->mapToGlobal(pos));
+
+}
+
+
+void MainWindow::on_tableView_clicked(const QModelIndex &index)
+{
+    //menu_deals->~QMenu();
 }
 

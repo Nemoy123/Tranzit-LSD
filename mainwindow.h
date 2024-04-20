@@ -115,6 +115,12 @@ private slots:
 
     void on_pushButton_filtr_default_clicked();
 
+    //слоты обрабоки нажатия правой кнопки мыши в таблице
+    void slotDefaultRecord();
+    void slotCustomMenuRequested(QPoint pos);
+
+    void on_tableView_clicked(const QModelIndex &index);
+
 signals:
     void signal_return_font (QFont font);
 
@@ -176,5 +182,7 @@ private:
     QString last_storage_filter_ {};
     QString FindNextStorageIdFromIdDeals (const QString& id_deals);
     QString FindDateFromIdDeals (const QString& id_deals);
+
+    QMenu* menu_deals = nullptr;
 };
 #endif // MAINWINDOW_H

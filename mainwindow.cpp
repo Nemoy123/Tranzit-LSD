@@ -1806,21 +1806,43 @@ void MainWindow::CheckProgramUpdate()
     //qDebug()<< "Удалили конец: "<<updfile;
     if (updfile.toDouble() > version) {
         //QMessageBox::warning(this, "Программа устарела","Вышла новая версия, запускаю установку");
-        QMessageBox msgBox;
-        msgBox.setText("Программа устарела");
-        msgBox.setInformativeText("Вышла новая версия, запускаю установку");
-        msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
-        msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setDefaultButton(QMessageBox::Ok);
-        int res = msgBox.exec();
+        QMessageBox msgbox;
+
+        msgbox.setText("Обновление");
+        msgbox.setInformativeText("Вышла новая версия " + QString::number(updfile.toDouble()) + ", запускаю установку. \n После нажатия \"Ок\" не делайте ничего, пока не появится окно установки программы!");
+        msgbox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+        msgbox.setIcon(QMessageBox::Warning);
+        msgbox.setDefaultButton(QMessageBox::Ok);
+
+        int res = msgbox.exec();
         if (res == QMessageBox::Ok) {//нажата кнопка Ok
-            qDebug()<< "Начать обновление";
+
+            //qDebug()<< "Начать обновление";
+            QDir dir("Update");
+
+            if (dir.exists()) {
+                dir.removeRecursively(); // удалить папку с содержимым
+            }
+            if (!dir.mkpath(".")) {
+                QMessageBox::critical(0, "Cannot make path",
+                                      "Не могу создать папку для обновления, проверьте свободное место на диске и запустите программу с правами администратора", QMessageBox::Cancel);
+                MainWindow::~MainWindow();
+            };
+
+
             QString file = mydir.absolutePath() + "/" + list.back();
-             qDebug()<< file;
-            QProcess::startDetached(file);
+            // qDebug()<< file;
+            if (QFile::exists("./Update/"+list.back())){
+                QFile::remove("./Update/"+list.back());
+            }
+            // qDebug()<< "./Update/"+list.back();
+
+            QFile::copy(file, "./Update/"+list.back());
+
+            QProcess::startDetached("./Update/"+list.back());
         }
 
-        msgBox.close();
+        msgbox.close();
         MainWindow::~MainWindow();
     }
 }

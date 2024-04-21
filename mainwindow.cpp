@@ -20,6 +20,8 @@
 #include <QCryptographicHash>
 #include <QFont>
 #include <QScrollBar>
+#include <QDir>
+#include <QProcess>
 
 ComboBoxDelegate::ComboBoxDelegate(QObject *parent, std::vector < std::vector<QString> >* vect,  std::map <QString, QString>* filter_deals )
     : QItemDelegate(parent)
@@ -204,6 +206,8 @@ bool MainWindow::createConnection() {
     }
     return true;
 }
+
+
 
 void MainWindow::UpdateListStorage() {
     ui->listWidget->clear();
@@ -471,6 +475,8 @@ MainWindow::MainWindow( QWidget *parent)
 
 
     ui->setupUi(this);
+    CheckProgramUpdate();
+
 
     createConnection();
     //if(!createConnection()) return 1;// Ситуацию возврата можно заменить в зависимости от разных ситуаций
@@ -892,7 +898,9 @@ bool FilterEmptyChecking (const std::map <QString, QString>& filter_deals) {
 }
 
 void MainWindow::on_pushButton_deals_clicked()
+
 {
+
     ui->filter_widget->hide();
     ui->buttons_action->setVisible(true);
     ui->comboBox_filter->addItem("Все");
@@ -1781,8 +1789,38 @@ void MainWindow::slotCustomMenuRequested(QPoint pos)
 }
 
 
-void MainWindow::on_tableView_clicked(const QModelIndex &index)
+void MainWindow::CheckProgramUpdate()
 {
-    //menu_deals->~QMenu();
-}
+    QDir mydir("\\\\192.168.154.36\\Archive\\soft\\");
 
+    QStringList list;
+    list << "Tranzit_LSD_setup_ver*.exe";
+    mydir.setNameFilters(list);
+    mydir.setSorting(QDir::Name);
+    list = mydir.entryList ();
+    //qDebug()<<list;
+    QString updfile = list.back();
+    updfile.remove(0, 21);
+    //qDebug()<< "Удалили начало: " << updfile;
+    updfile.remove(updfile.lastIndexOf(".exe"), 4);
+    //qDebug()<< "Удалили конец: "<<updfile;
+    if (updfile.toDouble() > version) {
+        //QMessageBox::warning(this, "Программа устарела","Вышла новая версия, запускаю установку");
+        QMessageBox msgBox;
+        msgBox.setText("Программа устарела");
+        msgBox.setInformativeText("Вышла новая версия, запускаю установку");
+        msgBox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setDefaultButton(QMessageBox::Ok);
+        int res = msgBox.exec();
+        if (res == QMessageBox::Ok) {//нажата кнопка Ok
+            qDebug()<< "Начать обновление";
+            QString file = mydir.absolutePath() + "/" + list.back();
+             qDebug()<< file;
+            QProcess::startDetached(file);
+        }
+
+        msgBox.close();
+        MainWindow::~MainWindow();
+    }
+}

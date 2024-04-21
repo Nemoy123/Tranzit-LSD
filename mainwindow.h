@@ -119,14 +119,17 @@ private slots:
     void slotDefaultRecord();
     void slotCustomMenuRequested(QPoint pos);
 
-    void on_tableView_clicked(const QModelIndex &index);
+    //void on_tableView_clicked(const QModelIndex &index);
 
 signals:
     void signal_return_font (QFont font);
 
 private:
+    const double version = 1.4; // версия программы
+
     bool LoadConfig ();
     bool createConnection();
+    void CheckProgramUpdate();
 
     QSqlDatabase db_;
     QString server_ = "localhost";

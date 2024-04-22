@@ -1770,7 +1770,9 @@ void MainWindow::slotDefaultRecord()
     //если успешно поменять значение в модели
     //ui->tableView->selectionModel()->currentIndex().;
     ui->tableView->model()->setData(ui->tableView->selectionModel()->currentIndex(),"0");
-
+    // обновить складскую запись если надо
+    QString temp {"0"};
+    StorageAdding(id_string, temp);
 }
 
 void MainWindow::slotCustomMenuRequested(QPoint pos)

@@ -187,5 +187,8 @@ private:
     QString FindDateFromIdDeals (const QString& id_deals);
 
     QMenu* menu_deals = nullptr;
+
+    template <typename... Tstring>
+    QVector<QString> GetDateFromSQL (const QString&id_string, Tstring&&... request);
 };
 #endif // MAINWINDOW_H

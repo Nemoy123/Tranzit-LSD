@@ -273,12 +273,12 @@ QMap<QString, QString> MainWindow::CheckDealsParam (const QString& id_deals) {
                 if (i > 5 && i != 16 && i != 7) {
                     QVariant v = query.value().value(i);
                     bool test_valid = false;
-                    int temp_int = v.toInt(&test_valid);
-                    if (test_valid) {
-                        qDebug() << QString::number(temp_int, 'f',2);
-                        //model->setItem(row_count, i, new QStandardItem(QString::number(temp_int, 'f',0)));
-                        date[vect.at(i)] = QString::number(temp_int, 'f',0);
-                    } else {
+                    // int temp_int = v.toInt(&test_valid);
+                    // if (test_valid) {
+                    //     qDebug() << QString::number(temp_int, 'f',2);
+                    //     //model->setItem(row_count, i, new QStandardItem(QString::number(temp_int, 'f',0)));
+                    //     date[vect.at(i)] = QString::number(temp_int, 'f',0);
+                    // } else {
                         double temp = v.toDouble(&test_valid);
                         if (test_valid) {
                             qDebug() << QString::number(temp, 'f',2);
@@ -287,7 +287,7 @@ QMap<QString, QString> MainWindow::CheckDealsParam (const QString& id_deals) {
                         } else {
                             date[vect.at(i)] = query.value().value(i).toString();
                         }
-                    }
+                    //}
                 }
                 else {
                     //model->setItem(row_count, i, new QStandardItem(query.value().value(i).toString()));
@@ -371,7 +371,7 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
         if (price_lt != 0 && date.value("plotnost").toDouble() != 0) {
             double price_tn = price_lt / date.value("plotnost").toDouble() * 1000;
             price_tn = round(price_tn*100)/100;
-            date["price_out_tn"] = QString::number(price_tn, 'g', 2);
+            date["price_out_tn"] = QString::number(price_tn, 'f', 2);
         }
     }
     if (date.contains("litres") && date.contains("plotnost") && date.contains("ves")) {
@@ -433,8 +433,8 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
         double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
         rentab = round(rentab*100)/100;
         double summ_rentab = rentab * (mass/1000);
-        date["rentab_tn"] = QString::number(rentab, 'g', 2);
-        date["profit"] = QString::number(summ_rentab, 'g', 2);
+        date["rentab_tn"] = QString::number(rentab, 'f', 2);
+        date["profit"] = QString::number(summ_rentab, 'f', 2);
     }
     return date;
 }
@@ -588,10 +588,10 @@ void MainWindow::ChangeFutureStartSaldo (const QString& id, const QString& date_
             QMap<QString, QString> stroke;
             stroke["id"] = query.value().value(0).toString();
             double st_b = StartingSaldo(stroke["id"]) ;
-            stroke["start_balance"] = QString::number( st_b, 'g', 2 );
+            stroke["start_balance"] = QString::number( st_b, 'f', 2 );
             stroke["arrival_doc"] = query.value().value(1).toString();
             stroke["departure_kg"] = query.value().value(2).toString();
-            stroke["balance_end"] = QString::number((st_b + stroke["arrival_doc"].toDouble() - stroke["departure_kg"].toDouble()), 'g', 2);
+            stroke["balance_end"] = QString::number((st_b + stroke["arrival_doc"].toDouble() - stroke["departure_kg"].toDouble()), 'f', 2);
             UpdateSQLString ("storages", stroke);
         }
     }
@@ -737,15 +737,15 @@ void CheckLitresPlotnost(QString& litres, QString& plotnost, QString& mass){
     double mas = mass.toDouble();
     if (litr != 0 && plot == 0 && mas != 0) {
         plot = mas/litr;
-        plotnost = QString::number(plot, 'g', 2);
+        plotnost = QString::number(plot, 'f', 3);
     }
     else if (litr != 0 && plot != 0 && mas == 0) {
         mas = litr * plot;
-        mass = QString::number(mas, 'g', 2);
+        mass = QString::number(mas, 'f', 2);
     }
     else if (litr == 0 && plot != 0 && mas != 0) {
         litr = mas / plot;
-        litres = QString::number(litr, 'g', 2);
+        litres = QString::number(litr, 'f', 2);
     }
 
 }
@@ -776,7 +776,7 @@ void MainWindow::UpdateAverageForLater (const QString& id) {
         }
     }
     for (int i = 0; i < id_for_change.size(); ++i) {
-        QString pr = QString::number( AveragePriceIn( id_for_change.at(i) ), 'g', 2 );
+        QString pr = QString::number( AveragePriceIn( id_for_change.at(i) ), 'f', 2 );
         QMap<QString, QString> date{};
         date["id"] = main_id_for_change.at(i);
         date["price_in_tn"] = pr;
@@ -798,7 +798,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
         double saldo = StartingSaldo (next_store_id_operation);
         QMap<QString, QString> upd_saldo;
         upd_saldo["id"] = next_store_id_operation;
-        upd_saldo["start_balance"] = QString::number(saldo, 'g', 2);
+        upd_saldo["start_balance"] = QString::number(saldo, 'f', 2);
         auto query_test = ExecuteSQL(QString{"SELECT arrival_doc, departure_kg, nedoliv FROM storages WHERE id ='" + next_store_id_operation+ "'"});
         QVector<QString> vect;
         if (query_test.value().next()) {
@@ -810,7 +810,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             vect[1] = "0";
             vect[2] = "0";
         }
-        upd_saldo["balance_end"] = QString::number((saldo + vect.at(0).toDouble() - vect.at(1).toDouble() - vect.at(2).toDouble()), 'g', 2);
+        upd_saldo["balance_end"] = QString::number((saldo + vect.at(0).toDouble() - vect.at(1).toDouble() - vect.at(2).toDouble()), 'f', 2);
         UpdateSQLString ("storages", upd_saldo);
         ChangeFutureStartSaldo(next_store_id_operation);
     }
@@ -849,9 +849,9 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["price_tn"] = vect_deals.at(8); // заполняем цену ЗАКУПКИ
             // заполняем начальное сальдо
             double st_bal = StartingSaldo(command["date_of_deal"], command["tovar_short_name"], command["storage_name"]);
-            command["start_balance"] = QString::number(st_bal, 'g', 2);
+            command["start_balance"] = QString::number(st_bal, 'f', 2);
 
-            command["balance_end"] = QString::number((command["start_balance"].toDouble() + vect_deals.at(7).toDouble()), 'g', 2); // заполняем конечное сальдо
+            command["balance_end"] = QString::number((command["start_balance"].toDouble() + vect_deals.at(7).toDouble()), 'f', 2); // заполняем конечное сальдо
 
             if (vect_deals.at(2).indexOf("НБ") == 0) {
                 // если перемещение между складами списать со склада донора
@@ -867,15 +867,15 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
                 date["main_table_id"] = vect_deals.at(9); // заполняем ИД основной таблицы
                 // заполняем начальное сальдо
                 double st_bal = StartingSaldo(date["date_of_deal"], date["tovar_short_name"], date["storage_name"]);
-                date["start_balance"] = QString::number(st_bal, 'g', 2);
+                date["start_balance"] = QString::number(st_bal, 'f', 2);
 
-                date["balance_end"] = QString::number((date["start_balance"].toDouble() - date["departure_kg"].toDouble()), 'g', 2); // заполняем конечное сальдо
+                date["balance_end"] = QString::number((date["start_balance"].toDouble() - date["departure_kg"].toDouble()), 'f', 2); // заполняем конечное сальдо
                 if (!AddRowSQL("storages", date)) {
                     qDebug() << "ERROR AddStorageDate date";
                 }
             }
             id_new = AddRowSQLString ("storages", command);
-            //UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
+
 
 
         } else { // списание со склада клиенту
@@ -887,18 +887,15 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
             command["departure_kg"] = vect_deals.at(7);
 
             double st_bal = StartingSaldo(command["date_of_deal"], command["tovar_short_name"], command["storage_name"]);
-            command["start_balance"] = QString::number(st_bal, 'g', 2);
-            command["balance_end"] = QString::number((command["start_balance"].toDouble() - command["departure_kg"].toDouble()), 'g', 2); // заполняем конечное сальдо
+            command["start_balance"] = QString::number(st_bal, 'f', 2);
+            command["balance_end"] = QString::number((command["start_balance"].toDouble() - command["departure_kg"].toDouble()), 'f', 2); // заполняем конечное сальдо
             command["price_tn"] = vect_deals.at(10);; // заполняем цену ПРОДАЖИ В ТОННАХ
-
             id_new = AddRowSQLString ("storages", command);
-
             command.clear();
             command["id"] = id_string;
-            command["price_in_tn"] = QString::number(AveragePriceIn(id_new), 'g', 2);
-            //command.remove("price_tn");
+            command["price_in_tn"] = QString::number(AveragePriceIn(id_new), 'f', 2);
             UpdateSQLString ("deals", command);
-            //UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
+
         }
         UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
         if (id_new == "-1") {
@@ -987,11 +984,11 @@ void MainWindow::on_pushButton_deals_clicked()
                     if (i > 5 && i != 17 && i != 7) {
                         QVariant v = query.value().value(i);
                         bool test_valid = false;
-                        int temp_int = v.toInt(&test_valid);
-                        if (test_valid) {
-                            qDebug() << QString::number(temp_int, 'f',2);
-                            model->setItem(row_count, i, new QStandardItem(QString::number(temp_int, 'f',0)));
-                        } else {
+                        // int temp_int = v.toInt(&test_valid);
+                        // if (test_valid) {
+                        //     qDebug() << QString::number(temp_int, 'f',2);
+                        //     model->setItem(row_count, i, new QStandardItem(QString::number(temp_int, 'f',0)));
+                        // } else {
                             double temp = v.toDouble(&test_valid);
                             if (test_valid) {
                                 qDebug() << QString::number(temp, 'f',2);
@@ -999,7 +996,7 @@ void MainWindow::on_pushButton_deals_clicked()
                             } else {
                                 model->setItem(row_count, i, new QStandardItem(v.toString()));
                             }
-                        }
+                        //}
                     }
                     else {
                         model->setItem(row_count, i, new QStandardItem(query.value().value(i).toString()));
@@ -1151,7 +1148,7 @@ void MainWindow::tableSelectionChanged(QItemSelection, QItemSelection) {
             sred = sum/count;
         }
     }
-    ui->statusbar->showMessage(" Сумма: " + QString::number(sum, 'g', 10) + " Количество элементов: " + QString::number(count) + " Среднее: " + QString::number(sred, 'g', 10));
+    ui->statusbar->showMessage(" Сумма: " + QString::number(sum, 'f', 2) + " Количество элементов: " + QString::number(count) + " Среднее: " + QString::number(sred, 'f', 2));
 }
 
 
@@ -1629,7 +1626,7 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
     if (auto query = ExecuteSQL(command)) {
          while(query.value().next()) {
              store_in.push_back( {query.value().value(0).toString().toDouble(), query.value().value(1).toString().toDouble()} );
-             qDebug() << query.value().value(2).toString();
+             //qDebug() << query.value().value(2).toString();
          }
     }
     for (const auto& [in_mass, price]: store_in) {
@@ -1860,7 +1857,7 @@ void MainWindow::CheckProgramUpdate()
         QMessageBox msgbox;
 
         msgbox.setText("Обновление");
-        msgbox.setInformativeText("Вышла новая версия " + QString::number(updfile.toDouble(), 'g', 10) + ", запускаю установку. \n После нажатия \"Ок\" не делайте ничего, пока не появится окно установки программы!");
+        msgbox.setInformativeText("Вышла новая версия " + QString::number(updfile.toDouble(), 'f', 10) + ", запускаю установку. \n После нажатия \"Ок\" не делайте ничего, пока не появится окно установки программы!");
         msgbox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
         msgbox.setIcon(QMessageBox::Warning);
         msgbox.setDefaultButton(QMessageBox::Ok);

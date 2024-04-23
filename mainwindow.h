@@ -125,7 +125,7 @@ signals:
     void signal_return_font (QFont font);
 
 private:
-    const double version = 1.41; // версия программы
+    const double version = 1.44; // версия программы
 
     bool LoadConfig ();
     bool createConnection();

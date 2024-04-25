@@ -22,6 +22,10 @@
 #include <QScrollBar>
 #include <QDir>
 #include <QProcess>
+#include <QFileDialog>
+#include <stringapiset.h>
+#include <QFile>
+
 
 ComboBoxDelegate::ComboBoxDelegate(QObject *parent, std::vector < std::vector<QString> >* vect,  std::map <QString, QString>* filter_deals )
     : QItemDelegate(parent)
@@ -1919,3 +1923,57 @@ QVector<QString> MainWindow::GetDateFromSQL(const QString &id_string, Tstring&&.
     }
     return result;
 }
+
+std::string UTF8_to_CP1251(std::string const & utf8)
+{
+    if(!utf8.empty())
+    {
+        int wchlen = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), utf8.size(), NULL, 0);
+        if(wchlen > 0 && wchlen != 0xFFFD)
+        {
+            std::vector<wchar_t> wbuf(wchlen);
+            MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), utf8.size(), &wbuf[0], wchlen);
+            std::vector<char> buf(wchlen);
+            WideCharToMultiByte(1251, 0, &wbuf[0], wchlen, &buf[0], wchlen, 0, 0);
+
+            return std::string(&buf[0], wchlen);
+        }
+    }
+    return std::string();
+}
+
+
+void MainWindow::on_pushButton_2_clicked() // сохранить таблицу
+{
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save File"),
+                                                    "/home/table.csv",
+                                                    tr("Exel csv (*.csv)"));
+    //qDebug() <<fileName;
+    QFile f(fileName);
+
+    if( f.open( QIODevice::WriteOnly ) )
+    {
+        QTextStream ts(&f);
+        QStringList strList;
+        ts.setGenerateByteOrderMark(true); // ставит метку BOM в начало файла, чтоб EXEL знал кодировку
+        ts << " ";
+        strList << "\" \"";
+        for( int c = 0; c < ui->tableView_header->horizontalHeader()->count(); ++c )
+            strList << "\""+ui->tableView_header->model()->headerData(c, Qt::Horizontal).toString()+"\"";
+        ts << strList.join( ";" )+"\n";
+
+        for( int r = 0; r < ui->tableView->verticalHeader()->count(); ++r )
+        {
+            strList.clear();
+            strList << "\""+ui->tableView->model()->headerData(r, Qt::Vertical).toString()+"\"";
+            for( int c = 0; c < ui->tableView->horizontalHeader()->count(); ++c )
+            {
+                strList << "\""+ui->tableView->model()->data(ui->tableView->model()->index(r, c), Qt::DisplayRole).toString()+"\"";
+            }
+            ts << strList.join( ";" )+"\n";
+        }
+
+        f.close();
+    }
+}
+

@@ -121,6 +121,8 @@ private slots:
 
     //void on_tableView_clicked(const QModelIndex &index);
 
+    void on_pushButton_2_clicked();
+
 signals:
     void signal_return_font (QFont font);
 

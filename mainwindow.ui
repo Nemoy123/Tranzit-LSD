@@ -115,6 +115,12 @@
          </property>
          <item>
           <widget class="QPushButton" name="pushButton_new">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Новая Сделка</string>
            </property>
@@ -122,6 +128,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="pushButton_copy">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Скопировать</string>
            </property>
@@ -129,6 +141,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="pushButton_paste">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="styleSheet">
             <string notr="true">QPushButton {
 	background-color: rgb (215,215,215);
@@ -146,8 +164,27 @@ QPushButton:pressed {
          </item>
          <item alignment="Qt::AlignVCenter">
           <widget class="QPushButton" name="pushButton_delete">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Удалить</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_2">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Сохранить</string>
            </property>
           </widget>
          </item>
@@ -174,6 +211,12 @@ QPushButton:pressed {
          </property>
          <item alignment="Qt::AlignVCenter">
           <widget class="QLabel" name="label">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Фильтр товара:</string>
            </property>
@@ -184,6 +227,12 @@ QPushButton:pressed {
          </item>
          <item alignment="Qt::AlignVCenter">
           <widget class="QPushButton" name="pushButton_enter_filtr">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Применить</string>
            </property>
@@ -191,8 +240,96 @@ QPushButton:pressed {
          </item>
          <item>
           <widget class="QPushButton" name="pushButton_filtr_default">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Сбросить</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="horizontalWidget" native="true">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <layout class="QHBoxLayout" name="filter_date">
+         <item>
+          <widget class="QLabel" name="label_2">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>    Выберите даты: </string>
+           </property>
+          </widget>
+         </item>
+         <item alignment="Qt::AlignHCenter">
+          <widget class="QDateEdit" name="dateEdit">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>110</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="layoutDirection">
+            <enum>Qt::LeftToRight</enum>
+           </property>
+          </widget>
+         </item>
+         <item alignment="Qt::AlignHCenter">
+          <widget class="QDateEdit" name="dateEdit_2">
+           <property name="minimumSize">
+            <size>
+             <width>110</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton">
+           <property name="maximumSize">
+            <size>
+             <width>200</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Применить</string>
            </property>
           </widget>
          </item>

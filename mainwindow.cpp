@@ -364,6 +364,64 @@ QString MainWindow::FindDateFromIdDeals(const QString &id_deals)
     return "-1";
 }
 
+void MainWindow::CreateSQLTablesAfterSetup()
+{
+    std::string result = R"(
+        CREATE TABLE IF NOT EXISTS control (
+            id BIGSERIAL NOT NULL PRIMARY KEY,
+            time_of_changes TIMESTAMP,
+            user_name VARCHAR(150),
+            id_deals BIGSERIAL NOT NULL,
+
+            manager VARCHAR(150),
+            date_of_deal DATE,
+            customer VARCHAR(150),
+            number_1c NUMERIC (25, 0),
+            number_dop_1c NUMERIC (10, 0),
+            postavshik VARCHAR(150),
+            neftebaza  VARCHAR(150),
+            tovar_short_name VARCHAR(250),
+            litres NUMERIC (25, 2),
+            plotnost NUMERIC (5, 4),
+            ves NUMERIC (25, 0),
+            price_in_tn NUMERIC (25, 0),
+            price_out_tn NUMERIC (25, 0),
+            price_out_litres NUMERIC (25, 2),
+            transp_cost_tn NUMERIC (25, 2),
+            commission NUMERIC (25, 2),
+            rentab_tn NUMERIC (25, 2),
+            profit NUMERIC (25, 2),
+            summ NUMERIC (25, 2),
+
+            manager_new VARCHAR(150),
+            date_of_deal_new DATE,
+            customer_new VARCHAR(150),
+            number_1c_new NUMERIC (25, 0),
+            number_dop_1c_new NUMERIC (10, 0),
+            postavshik_new VARCHAR(150),
+            neftebaza_new  VARCHAR(150),
+            tovar_short_name_new VARCHAR(250),
+            litres_new NUMERIC (25, 2),
+            plotnost_new NUMERIC (5, 4),
+            ves_new NUMERIC (25, 0),
+            price_in_tn_new NUMERIC (25, 0),
+            price_out_tn_new NUMERIC (25, 0),
+            price_out_litres_new NUMERIC (25, 2),
+            transp_cost_tn_new NUMERIC (25, 2),
+            commission_new NUMERIC (25, 2),
+            rentab_tn_new NUMERIC (25, 2),
+            profit_new NUMERIC (25, 2),
+            summ_new NUMERIC (25, 2)
+        )
+    )";
+    QString command = QString::fromStdString(result);
+    auto query = ExecuteSQL(command);
+    if (!query) {
+        QMessageBox::critical(0, "Таблица control не создана",
+                              "Таблица control не создана: " + query->lastError().text(), QMessageBox::Cancel);
+    }
+}
+
 
 
 
@@ -512,7 +570,7 @@ MainWindow::MainWindow( QWidget *parent)
     //if(!createConnection()) return 1;// Ситуацию возврата можно заменить в зависимости от разных ситуаций
     // Указываем подключение к базе данных
     db_ = QSqlDatabase::database("connection1");
-
+    CreateSQLTablesAfterSetup();
     UpdateListStorage();
 
     on_pushButton_deals_clicked();
@@ -1070,7 +1128,17 @@ void MainWindow::on_pushButton_deals_clicked()
                             UpdateSQLString ("deals", date);
                             StorageAdding(id_string, new_text);
                             index_row_change_item = item->index().row();
-                            on_pushButton_deals_clicked();
+
+                            QMap<QString,QString>::iterator it = date.begin();
+                            for(;it != date.end(); ++it){
+                                if (it.key() == "date_of_deal") {
+                                    QDate date = QDate::fromString(it.value(), "yyyy-MM-dd");
+                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it.key())),date.toString("dd-MM-yyyy"));
+                                } else {
+                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it.key())),it.value());
+                                }
+                            }
+                            //on_pushButton_deals_clicked();
                         }
                     });
     QObject::connect(model_header_, &QStandardItemModel::itemChanged,
@@ -1922,12 +1990,21 @@ QString Sum(const Tn&... vn) {
     return (..., (vn + QString{","} ));
 }
 
+template<typename Tstring>
+QString TestRequest (const Tstring& stroke) {
+    if (stroke == "date_of_deal") {
+        return "to_char(date_of_deal, 'DD-MM-YYYY')";
+    }
+    return stroke;
+}
+
 template<typename... Tstring>
 QVector<QString> MainWindow::GetDateFromSQL(const QString &id_string, Tstring&&... request){
 
     QString command = "SELECT ";
+
     if constexpr (sizeof...(request) != 0) {
-        command += Sum(std::forward<Tstring>(request)...);
+        command += Sum(TestRequest(std::forward<Tstring>(request))...);
     } else {return {};}
     if (command.back() == ',') {command.removeLast();}
     command += " FROM deals WHERE id = '" + id_string + "'";

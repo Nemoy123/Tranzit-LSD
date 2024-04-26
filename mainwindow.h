@@ -203,6 +203,7 @@ private:
     QDate start_date_storages;
     QDate end_date_storages;
 
+    void CreateSQLTablesAfterSetup();
 
 };
 #endif // MAINWINDOW_H

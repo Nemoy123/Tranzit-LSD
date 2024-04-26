@@ -10,6 +10,7 @@
 #include <QListWidgetItem>
 #include <optional>
 #include <set>
+#include "qdatetime.h"
 #include "settingwindow.h"
 #include <QFile>
 #include <QStyledItemDelegate>
@@ -123,11 +124,15 @@ private slots:
 
     void on_pushButton_2_clicked();
 
+    //void on_pushButton_clicked();
+
+    void on_pushButton_filter_date_deals_clicked();
+
 signals:
     void signal_return_font (QFont font);
 
 private:
-    const double version = 1.44; // версия программы
+    const double version = 1.6; // версия программы
 
     bool LoadConfig ();
     bool createConnection();
@@ -192,5 +197,12 @@ private:
 
     template <typename... Tstring>
     QVector<QString> GetDateFromSQL (const QString&id_string, Tstring&&... request);
+
+    QDate start_date_deals;
+    QDate end_date_deals;
+    QDate start_date_storages;
+    QDate end_date_storages;
+
+
 };
 #endif // MAINWINDOW_H

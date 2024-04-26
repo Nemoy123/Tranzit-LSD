@@ -514,6 +514,7 @@ MainWindow::MainWindow( QWidget *parent)
     db_ = QSqlDatabase::database("connection1");
 
     UpdateListStorage();
+
     on_pushButton_deals_clicked();
 }
 
@@ -927,6 +928,16 @@ bool FilterEmptyChecking (const std::map <QString, QString>& filter_deals) {
 void MainWindow::on_pushButton_deals_clicked()
 
 {
+    if (start_date_deals.isNull() || end_date_deals.isNull()) {
+        QString today_date = GetCurrentDate ();
+        QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
+        start_date_deals.setDate(date_temp.year(), date_temp.month(), 1);
+        end_date_deals.setDate(date_temp.year(), date_temp.month(), date_temp.daysInMonth());
+    }
+    filter_deals["start_date_deals"] = start_date_deals.toString("yyyy-MM-dd");
+    filter_deals["end_date_deals"] = end_date_deals.toString("yyyy-MM-dd");
+    ui->dateEdit_start->setDate(start_date_deals);
+    ui->dateEdit_end->setDate(end_date_deals);
 
     ui->filter_widget->hide();
     ui->buttons_action->setVisible(true);
@@ -975,12 +986,18 @@ void MainWindow::on_pushButton_deals_clicked()
         bool begin = true;
         for (const auto& [name, val] : filter_deals) {
             if (!begin) {command += "AND ";}
-            command += name + " = '" + val + "' ";
+            if (name != "start_date_deals" && name != "end_date_deals" ) {
+                command += name + " = '" + val + "' ";
+            } else {
+                if (name == "start_date_deals") command += "date_of_deal >= '" + val + "' ";
+                if (name == "end_date_deals") command += "date_of_deal <= '" + val + "' ";
+            }
             begin = false;
         }
         command += "ORDER BY date_of_deal ASC, id ASC";
 
     }
+    qDebug() << command;
     if (std::optional<QSqlQuery> query = ExecuteSQL(command)) {
             int row_count = 0; // начинаем с 1 строки. 0 строка под комбобоксы
             while(query.value().next()){
@@ -1011,6 +1028,7 @@ void MainWindow::on_pushButton_deals_clicked()
                 ++row_count;
             }
     }
+
     if ( FilterEmptyChecking(filter_deals) ) {
         //std::vector < std::vector<QString> > vect_deals_filters{};
         vect_deals_filters.reserve(18);
@@ -1058,7 +1076,7 @@ void MainWindow::on_pushButton_deals_clicked()
     QObject::connect(model_header_, &QStandardItemModel::itemChanged,
                      [&](QStandardItem *item) {
                         QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
-                                                "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
+                                                "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id", "start_date_deals", "end_date_deals"};
                         int column = item->index().column();
                         //int row =    item->index().row();
                         if (item->text() != "Все") {
@@ -1861,7 +1879,7 @@ void MainWindow::CheckProgramUpdate()
         QMessageBox msgbox;
 
         msgbox.setText("Обновление");
-        msgbox.setInformativeText("Вышла новая версия " + QString::number(updfile.toDouble(), 'f', 10) + ", запускаю установку. \n После нажатия \"Ок\" не делайте ничего, пока не появится окно установки программы!");
+        msgbox.setInformativeText("Вышла новая версия " + QString::number(updfile.toDouble(), 'f', 2) + ", запускаю установку. \n После нажатия \"Ок\" не делайте ничего, пока не появится окно установки программы!");
         msgbox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
         msgbox.setIcon(QMessageBox::Warning);
         msgbox.setDefaultButton(QMessageBox::Ok);
@@ -1975,5 +1993,25 @@ void MainWindow::on_pushButton_2_clicked() // сохранить таблицу
 
         f.close();
     }
+}
+
+
+
+
+
+void MainWindow::on_pushButton_filter_date_deals_clicked()
+{
+    if (!ui->dateEdit_start->date().isValid()) {
+        QMessageBox::critical(this, "Дата не корректна", "Проверьте начальную дату!");
+        return;
+    }
+    if (!ui->dateEdit_end->date().isValid()) {
+        QMessageBox::critical(this, "Дата не корректна", "Проверьте конечную дату!");
+        return;
+    }
+    start_date_deals = ui->dateEdit_start->date();
+    end_date_deals = ui->dateEdit_end->date();
+
+    on_pushButton_deals_clicked();
 }
 

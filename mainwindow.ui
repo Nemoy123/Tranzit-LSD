@@ -255,9 +255,9 @@ QPushButton:pressed {
        </widget>
       </item>
       <item>
-       <widget class="QWidget" name="horizontalWidget" native="true">
+       <widget class="QWidget" name="Widget_filter_date" native="true">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <layout class="QHBoxLayout" name="filter_date">
          <item>
@@ -280,7 +280,7 @@ QPushButton:pressed {
           </widget>
          </item>
          <item alignment="Qt::AlignHCenter">
-          <widget class="QDateEdit" name="dateEdit">
+          <widget class="QDateEdit" name="dateEdit_start">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -305,7 +305,7 @@ QPushButton:pressed {
           </widget>
          </item>
          <item alignment="Qt::AlignHCenter">
-          <widget class="QDateEdit" name="dateEdit_2">
+          <widget class="QDateEdit" name="dateEdit_end">
            <property name="minimumSize">
             <size>
              <width>110</width>
@@ -321,7 +321,7 @@ QPushButton:pressed {
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="pushButton">
+          <widget class="QPushButton" name="pushButton_filter_date_deals">
            <property name="maximumSize">
             <size>
              <width>200</width>

@@ -12,7 +12,7 @@
 #include <QStandardItem>
 #include <QTableView>
 #include <QVariant>
-#include <QMap>
+//#include <QMap>
 #include "settingwindow.h"
 #include <QFile>
 #include <QTextStream>
@@ -259,10 +259,10 @@ QString ValuesString (const QVector <QString>& vect) {
     return result;
 }
 
-QMap<QString, QString> MainWindow::CheckDealsParam (const QString& id_deals) {
+std::unordered_map<QString, QString> MainWindow::CheckDealsParam (const QString& id_deals) {
     const QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
                           "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
-    QMap<QString, QString> date;
+    std::unordered_map <QString, QString> date;
     date["id"] = id_deals;
     QString command = "SELECT date_of_deal, customer, number_1c, postavshik, neftebaza, tovar_short_name, litres, plotnost, ves, price_in_tn, "
                       "price_out_tn, price_out_litres, transp_cost_tn, commission, rentab_tn, profit, manager "
@@ -372,6 +372,7 @@ void MainWindow::CreateSQLTablesAfterSetup()
             time_of_changes TIMESTAMP,
             user_name VARCHAR(150),
             id_deals BIGSERIAL NOT NULL,
+            table_name VARCHAR(150),
 
             manager VARCHAR(150),
             date_of_deal DATE,
@@ -425,21 +426,22 @@ void MainWindow::CreateSQLTablesAfterSetup()
 
 
 
-QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date) {
+std::unordered_map <QString, QString> MainWindow::CheckDealsParam (std::unordered_map <QString, QString>& date) {
 
-    if (date.contains("price_out_litres") && date.contains("plotnost")) {
+    if (date.find("price_out_litres") != date.end() && date.find("plotnost") != date.end()) {
+
         double price_lt =0;
-        price_lt = date.value("price_out_litres").toDouble(); // если цена за литр не равна 0
-        if (price_lt != 0 && date.value("plotnost").toDouble() != 0) {
-            double price_tn = price_lt / date.value("plotnost").toDouble() * 1000;
+        price_lt = date.at("price_out_litres").toDouble(); // если цена за литр не равна 0
+        if (price_lt != 0 && date.at("plotnost").toDouble() != 0) {
+            double price_tn = price_lt / date.at("plotnost").toDouble() * 1000;
             price_tn = round(price_tn*100)/100;
             date["price_out_tn"] = QString::number(price_tn, 'f', 2);
         }
     }
-    if (date.contains("litres") && date.contains("plotnost") && date.contains("ves")) {
-        double lit = date.value("litres").toDouble();
-        double plot = date.value("plotnost").toDouble();
-        double ves = date.value("ves").toDouble();
+    if (date.find("litres") != date.end() && date.find("plotnost") != date.end() && date.find("ves") != date.end()) {
+        double lit = date.at("litres").toDouble();
+        double plot = date.at("plotnost").toDouble();
+        double ves = date.at("ves").toDouble();
         if (lit == 0 && plot != 0 && ves != 0) {
             lit = ves / plot;
             date["litres"] = QString::number(lit,'f',2);
@@ -463,8 +465,9 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
 
 
     // проверить если приход на базу далее не выполнять
-    if (date.contains("id") && !date.contains("customer")) {
-        QString command = "SELECT customer FROM deals WHERE id = '" + date.value("id") + "'";
+    if (date.find("id") != date.end() && date.find("customer") == date.end()) {
+
+        QString command = "SELECT customer FROM deals WHERE id = '" + date.at("id") + "'";
         if (auto query = ExecuteSQL(command)) {
             if(query.value().next()) {
                 if (query.value().value(0).toString().indexOf("НБ") == 0) {
@@ -475,8 +478,9 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
             }
         }
     }
-    else if (date.contains("customer")) {
-        if (date.value("customer").indexOf("НБ") == 0) {
+    else if (date.find("customer") != date.end()) {
+
+        if (date.at("customer").indexOf("НБ") == 0) {
             date["rentab_tn"] = "0";
             date["profit"] = "0";
             return date;
@@ -485,13 +489,13 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
 
 
     double mass = 0;
-    mass = date.value("ves").toDouble(); // вес
+    mass = date.at("ves").toDouble(); // вес
     if (mass != 0) { // проверить деление на ноль
-        double price_tn_prod = date.value("price_out_tn").toDouble(); // цена продажи тонна
-        double price_tn_vhod = date.value("price_in_tn").toDouble(); // цена покупки тонна
+        double price_tn_prod = date.at("price_out_tn").toDouble(); // цена продажи тонна
+        double price_tn_vhod = date.at("price_in_tn").toDouble(); // цена покупки тонна
 
-        double commission = date.value("comission").toDouble(); // комиссионные всего, не за тонну
-        double transport = date.value("transp_cost_tn").toDouble(); // транспорт за рейс
+        double commission = date.at("commission").toDouble(); // комиссионные всего, не за тонну
+        double transport = date.at("transp_cost_tn").toDouble(); // транспорт за рейс
         double rentab = (price_tn_prod - price_tn_vhod) - (transport / (mass/1000)) - commission;
         rentab = round(rentab*100)/100;
         double summ_rentab = rentab * (mass/1000);
@@ -501,7 +505,7 @@ QMap<QString, QString> MainWindow::CheckDealsParam (QMap<QString, QString>& date
     return date;
 }
 
-QString MainWindow::AddRowSQLString (const QString& storage, QMap<QString, QString>& date_){
+QString MainWindow::AddRowSQLString (const QString& storage, std::unordered_map <QString, QString>& date_){
     if (storage == "deals") {
         date_ = CheckDealsParam (date_);
     }
@@ -512,14 +516,14 @@ QString MainWindow::AddRowSQLString (const QString& storage, QMap<QString, QStri
     QString value_stroke{};
     bool begin = true;
     for (auto item = date_.cbegin(), end = date_.cend(); item != end; ++item) {
-        if (!item.value().isEmpty()) {
+        if (!item->second.isEmpty()) {
             if (!begin) {
                 key_stroke += ", ";
                 value_stroke += ", ";
             }
-            key_stroke += item.key();
-            if (item.value() != "") {
-                value_stroke += "'"+item.value()+"'";
+            key_stroke += item->first;
+            if (item->second != "") {
+                value_stroke += "'"+item->second+"'";
             } else {value_stroke += "NULL";}
             begin = false;
         }
@@ -540,7 +544,7 @@ QString MainWindow::AddRowSQLString (const QString& storage, QMap<QString, QStri
 
 }
 
-bool MainWindow::AddRowSQL (const QString& storage, QMap<QString, QString>& date_) {
+bool MainWindow::AddRowSQL (const QString& storage, std::unordered_map<QString, QString>& date_) {
 
     return ( AddRowSQLString (storage, date_) != "-1");
 }
@@ -598,42 +602,50 @@ std::optional<QSqlQuery> MainWindow::ExecuteSQL(const QString& command){
     return query;
 }
 
-void MainWindow::UpdateSQLString (const QString& storage, const QMap<QString, QString>& date){
+void MainWindow::UpdateSQLString (const QString& storage, const std::unordered_map<QString, QString>& date){
+    // регистрация старых значений
+    if (date.empty()) return;
+    if (storage == "deals") {
+        std::unordered_map <QString, QString> date_old;
+
+
+        //UpdateSQLString("control", date_old);
+    }
 
     QString command = "UPDATE " + storage + " SET ";
     bool begin = true;
     for (auto i = date.cbegin(), end = date.cend(); i != end; ++i){
-        if (!begin && i.key() != "id") {
+        if (!begin && i->first != "id") {
             command += ", ";
 
         }
 
-        if (i.key() != "id") {
+        if (i->first != "id") {
             begin = false;
-            command += i.key();
+            command += i->first;
             command += " = '";
-            command += i.value();
+            command += i->second;
             command += "'";
             //command += i.key() + " = '" + i.value() + "'";
         }
 
     }
-    command += " WHERE id = '" + date.value("id") + "'";
+    command += " WHERE id = '" + date.at("id") + "'";
 
     ExecuteSQL(command);
 }
 
 void MainWindow::ChangeFutureStartSaldo (const QString& id) {
     QString command = "SELECT date_of_deal, storage_name, tovar_short_name FROM storages WHERE id = '" + id + "'";
-    QMap <QString, QString> result;
+    std::unordered_map <QString, QString> result;
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
-            result.insert( "date_of_deal", query.value().value(0).toString() ); // первое value это от optional
-            result.insert( "storage_name", query.value().value(1).toString() );
-            result.insert( "tovar_short_name", query.value().value(2).toString() );
+            result["date_of_deal"] = query.value().value(0).toString();
+            result["storage_name"] = query.value().value(1).toString();
+            result["tovar_short_name"] = query.value().value(2).toString();
         }
     }
-    ChangeFutureStartSaldo(id, result.value("date_of_deal"), result.value("storage_name"), result.value("tovar_short_name"));
+    ChangeFutureStartSaldo(id, result.at("date_of_deal"), result.at("storage_name"), result.at("tovar_short_name"));
 
 }
 
@@ -648,7 +660,7 @@ void MainWindow::ChangeFutureStartSaldo (const QString& id, const QString& date_
               "ORDER BY date_of_deal, id";
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
-            QMap<QString, QString> stroke;
+            std::unordered_map <QString, QString> stroke;
             stroke["id"] = query.value().value(0).toString();
             double st_b = StartingSaldo(stroke["id"]) ;
             stroke["start_balance"] = QString::number( st_b, 'f', 2 );
@@ -689,7 +701,7 @@ QString MainWindow::FindNextOrPrevIdFromStorage (const QString& storage_id, cons
     }
     QString command = "SELECT date_of_deal, tovar_short_name, storage_name FROM storages "
                       "WHERE id = '" + storage_id + "'";
-    QMap<QString, QString> date;
+    std::unordered_map<QString, QString> date;
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
             date["date_of_deal"] = query.value().value(0).toString();
@@ -735,7 +747,7 @@ QString MainWindow::FindNextOrPrevIdFromStorage (const QString& storage_id, cons
 QString MainWindow::FindPrevIdFromStorage (const QString& storage_id) {
     QString command = "SELECT date_of_deal, tovar_short_name, storage_name FROM storages "
                       "WHERE id = '" + storage_id + "'";
-    QMap<QString, QString> date;
+    std::unordered_map<QString, QString> date;
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
             date["date_of_deal"] = query.value().value(0).toString();
@@ -762,7 +774,7 @@ QString MainWindow::FindPrevIdFromStorage (const QString& storage_id) {
 double MainWindow::StartingSaldo (const QString& storage_id) {
     QString command = "SELECT date_of_deal, tovar_short_name, storage_name FROM storages "
                       "WHERE id = '" + storage_id + "'";
-    QMap<QString, QString> date;
+    std::unordered_map<QString, QString> date;
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
             date["date_of_deal"] = query.value().value(0).toString();
@@ -815,12 +827,12 @@ void CheckLitresPlotnost(QString& litres, QString& plotnost, QString& mass){
 
 void MainWindow::UpdateAverageForLater (const QString& id) {
     QString command = "SELECT date_of_deal, storage_name, tovar_short_name FROM storages WHERE id = '" + id + "'";
-    QMap <QString, QString> result;
+    std::unordered_map <QString, QString> result;
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
-            result.insert( "date_of_deal", query.value().value(0).toString() ); // первое value это от optional
-            result.insert( "storage_name", query.value().value(1).toString() );
-            result.insert( "tovar_short_name", query.value().value(2).toString() );
+            result["date_of_deal"]=query.value().value(0).toString();
+            result["storage_name"]=query.value().value(1).toString();
+            result["tovar_short_name"]=query.value().value(2).toString();
         }
     }
     command = "SELECT id, main_table_id FROM storages "
@@ -840,7 +852,7 @@ void MainWindow::UpdateAverageForLater (const QString& id) {
     }
     for (int i = 0; i < id_for_change.size(); ++i) {
         QString pr = QString::number( AveragePriceIn( id_for_change.at(i) ), 'f', 2 );
-        QMap<QString, QString> date{};
+        std::unordered_map <QString, QString> date{};
         date["id"] = main_id_for_change.at(i);
         date["price_in_tn"] = pr;
         UpdateSQLString("deals", date);
@@ -859,7 +871,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     DeleteFromSQL("storages", id_string);
     if (!next_store_id_operation.isEmpty()) {
         double saldo = StartingSaldo (next_store_id_operation);
-        QMap<QString, QString> upd_saldo;
+        std::unordered_map<QString, QString> upd_saldo;
         upd_saldo["id"] = next_store_id_operation;
         upd_saldo["start_balance"] = QString::number(saldo, 'f', 2);
         auto query_test = ExecuteSQL(QString{"SELECT arrival_doc, departure_kg, nedoliv FROM storages WHERE id ='" + next_store_id_operation+ "'"});
@@ -897,7 +909,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
 
 
         //Внести новые данные
-        QMap<QString, QString> command;
+        std::unordered_map <QString, QString> command;
 
         command["date_of_deal"] = vect_deals.at(0); // дата
         command["tovar_short_name"] = vect_deals.at(4); // заполняем название товара
@@ -918,7 +930,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
 
             if (vect_deals.at(2).indexOf("НБ") == 0) {
                 // если перемещение между складами списать со склада донора
-                QMap<QString, QString> date;
+                std::unordered_map<QString, QString> date;
                 date["date_of_deal"] = vect_deals.at(0); // дата
                 date["operation"] = vect_deals.at(1); // на какой склад отправляем
                 date["storage_name"] = vect_deals.at(2).simplified() + "_" + vect_deals.at(3).simplified(); // название склада с кот списываем
@@ -1063,34 +1075,24 @@ void MainWindow::on_pushButton_deals_clicked()
                     if (i > 5 && i != 17 && i != 7) {
                         QVariant v = query.value().value(i);
                         bool test_valid = false;
-                        // int temp_int = v.toInt(&test_valid);
-                        // if (test_valid) {
-                        //     qDebug() << QString::number(temp_int, 'f',2);
-                        //     model->setItem(row_count, i, new QStandardItem(QString::number(temp_int, 'f',0)));
-                        // } else {
-                            double temp = v.toDouble(&test_valid);
+                        double temp = v.toDouble(&test_valid);
                             if (test_valid) {
                                 qDebug() << QString::number(temp, 'f',2);
                                 model->setItem(row_count, i, new QStandardItem(QString::number(temp, 'f',2)));
                             } else {
                                 model->setItem(row_count, i, new QStandardItem(v.toString()));
                             }
-                        //}
                     }
                     else {
                         model->setItem(row_count, i, new QStandardItem(query.value().value(i).toString()));
                     }
-
-
                 }
                 ++row_count;
             }
     }
 
     if ( FilterEmptyChecking(filter_deals) ) {
-        //std::vector < std::vector<QString> > vect_deals_filters{};
-        vect_deals_filters.reserve(18);
-
+       vect_deals_filters.reserve(18);
         for (int i = 0; i < 18; ++i) {
             std::set <QString> set_date{};
             for (int y = 0; y < (model->rowCount()-1); ++y) {
@@ -1120,7 +1122,7 @@ void MainWindow::on_pushButton_deals_clicked()
                         //проверить значение в базе, надо ли менять
                         QVector<QString> old_date = GetDateFromSQL (id_string, vect.at(column));
                         if (old_date.at(0) != new_text) {
-                            QMap <QString, QString> date;
+                            std::unordered_map <QString, QString> date;
                             date ["id"] = id_string;
                             date [vect.value(column)] = new_text;
                             UpdateSQLString ("deals", date);
@@ -1129,13 +1131,13 @@ void MainWindow::on_pushButton_deals_clicked()
                             StorageAdding(id_string, new_text);
                             index_row_change_item = item->index().row();
 
-                            QMap<QString,QString>::iterator it = date.begin();
+                            std::unordered_map<QString,QString>::iterator it = date.begin();
                             for(;it != date.end(); ++it){
-                                if (it.key() == "date_of_deal") {
-                                    QDate date = QDate::fromString(it.value(), "yyyy-MM-dd");
-                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it.key())),date.toString("dd-MM-yyyy"));
+                                if (it->first == "date_of_deal") {
+                                    QDate date = QDate::fromString(it->second, "yyyy-MM-dd");
+                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it->first)),date.toString("dd-MM-yyyy"));
                                 } else {
-                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it.key())),it.value());
+                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it->first)),it->second);
                                 }
                             }
                             //on_pushButton_deals_clicked();
@@ -1285,9 +1287,9 @@ void MainWindow::on_pushButton_delete_clicked()
             if (temp == "-1") {
                 temp = FindNextOrPrevIdFromStorage(id_deleted, "next");
                 // стартовый баланс начать с нуля
-                QMap<QString, QString> date;
-                date.insert("id", temp);
-                date.insert("start_balance", "0");
+                std::unordered_map <QString, QString> date;
+                date.insert({"id", temp});
+                date.insert({"start_balance", "0"});
                 UpdateSQLString ("storages", date);
 
                // qDebug() << "Error on_pushButton_delete_clicked";
@@ -1520,7 +1522,7 @@ void MainWindow::SaveSettings () {
      cl_enc.encrypt(stream.readAll());
 }
 
-void MainWindow::ChangeSettingServer(const QMap<QString, QString>& map_set) {
+void MainWindow::ChangeSettingServer(std::unordered_map<QString, QString>& map_set) {
     if (db_.isOpen()) {
         db_.close();
         qDebug() << "Old DB closed";
@@ -1586,7 +1588,7 @@ void MainWindow::on_pushButton_paste_clicked()
         //auto row = index_for_copy_;
         //нашли ID копируемого объекта
         //auto id_copy = FindID (index_for_copy->row(), index_for_copy->column()).toString();
-        QMap<QString, QString> date;
+        std::unordered_map<QString, QString> date;
         QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
                                     "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
 
@@ -1735,25 +1737,25 @@ double MainWindow::AveragePriceIn (const QString& date_of_deal,const QString& st
 double MainWindow::AveragePriceIn (const QString& id_storage) {
 
     QString command = "SELECT date_of_deal, storage_name, tovar_short_name, start_balance FROM storages WHERE id = '" + id_storage + "'";
-    QMap <QString, QString> date;
+    std::unordered_map <QString, QString> date;
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
-            date.insert( "date_of_deal", query.value().value(0).toString() ); // первое value это от optional
-            date.insert( "storage_name", query.value().value(1).toString() );
-            date.insert( "tovar_short_name", query.value().value(2).toString() );
-            date.insert( "start_balance", query.value().value(3).toString() );
+            date.insert({ "date_of_deal", query.value().value(0).toString() }); // первое value это от optional
+            date.insert({  "storage_name", query.value().value(1).toString()  });
+            date.insert({  "tovar_short_name", query.value().value(2).toString()  });
+            date.insert({  "start_balance", query.value().value(3).toString()  });
         }
     }
-    return AveragePriceIn (date.value("date_of_deal"), date.value("storage_name"),date.value("tovar_short_name"),date.value("start_balance"), id_storage);
+    return AveragePriceIn (date.at("date_of_deal"), date.at("storage_name"),date.at("tovar_short_name"),date.at("start_balance"), id_storage);
 }
 
-bool Parsing_line(QString&& line, std::vector<QMap<QString, QString>>& vect) {
+bool Parsing_line(QString&& line, std::vector<std::unordered_map<QString, QString>>& vect) {
 
     try
     {
         line.replace(',', '.');
         QStringList list = line.split(";");
-        QMap<QString, QString> date {};
+        std::unordered_map<QString, QString> date {};
         std::vector<QString> names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza",
                                    "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
                                    "price_out_tn", "price_out_litres", "transp_cost_tn", "commission"};
@@ -1771,9 +1773,9 @@ bool Parsing_line(QString&& line, std::vector<QMap<QString, QString>>& vect) {
 void MainWindow::ParsingCSV (QFile& file) {
     qDebug() << "ParsingCSV";
 
-    QMap<QString, QString> date;
+    std::unordered_map<QString, QString> date;
     QString stroke;
-    std::vector<QMap<QString, QString>> vect;
+    std::vector<std::unordered_map<QString, QString>> vect;
 
     QTextStream in(&file);
     int counter = 1;
@@ -1798,7 +1800,7 @@ void MainWindow::ParsingCSV (QFile& file) {
     }
     qDebug() << "ParsingCSV end GOOD";
 
-    //AddRowSQL (const QString& storage, const QMap<QString, QString>& date_)
+    //AddRowSQL (const QString& storage, const std::unordered_map<QString, QString>& date_)
 }
 
 
@@ -1811,7 +1813,7 @@ void MainWindow::CheckStorages() {
 
     command = "SELECT id FROM deals WHERE customer LIKE 'НБ%' OR postavshik LIKE 'НБ%' ORDER BY date_of_deal ASC, id ASC";
     QVector<QString> vect_deals;
-    QMap<QString, QString> dant {};
+    std::unordered_map<QString, QString> dant {};
     if (auto query = ExecuteSQL(command)) {
         while(query.value().next()) {
             vect_deals.push_back( query.value().value(0).toString() ); // первое value это от optional
@@ -1899,7 +1901,7 @@ void MainWindow::slotDefaultRecord()
     qDebug() << "ID " + id_string;
     QVector <QString> vect_column_deals {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
                           "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
-    QMap<QString, QString> date;
+    std::unordered_map<QString, QString> date;
     date["id"] = id_string;
     date[vect_column_deals.at(column)] = "0";
     UpdateSQLString ("deals", std::move(date));

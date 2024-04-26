@@ -22,7 +22,7 @@ public:
 
 signals:
     void signal_importcsv(QFile& file);
-    void signal_set_server(const QMap <QString, QString>& server_set);
+    void signal_set_server(std::unordered_map <QString, QString>& server_set);
     void signal_check_store();
     void signal_font_change (QString font_name, QString font_size);
     void signal_font_default();

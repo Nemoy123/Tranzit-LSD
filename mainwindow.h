@@ -146,7 +146,7 @@ private:
     QString pass_ = "Serva_984";
     QString setting_file_ = "settings.lsd";
     Encdec cl_enc;
-    void ChangeSettingServer(const QMap<QString, QString>& map_set);
+    void ChangeSettingServer(std::unordered_map<QString, QString>& map_set);
     void SaveSettings ();
 
     QVariant FindID (int row, int column);
@@ -157,8 +157,8 @@ private:
     QStandardItemModel* model_header_;
     QStandardItemModel* model_storages_;
     std::optional<QSqlQuery> ExecuteSQL(const QString& command);
-    QString  AddRowSQLString (const QString& storage, QMap<QString, QString>& date_);
-    bool AddRowSQL (const QString& storage, QMap<QString, QString>& date_);
+    QString  AddRowSQLString (const QString& storage, std::unordered_map <QString, QString>& date_);
+    bool AddRowSQL (const QString& storage, std::unordered_map<QString, QString>& date_);
     bool DeleteFromSQL (const QString& storage, const QString& main_table_id);
     bool StorageAdding(const QString& id_string, QString& new_text);
     QString GetCurrentDate (); // получить дату Сегодня из SQL
@@ -167,7 +167,7 @@ private:
     double StartingSaldo (const QString& storage_id);
     void ChangeFutureStartSaldo (const QString& id);
     void ChangeFutureStartSaldo (const QString& id, const QString& date_of_deal,const QString& storage_name, const QString& tovar_short_name);
-    void UpdateSQLString (const QString& storage, const QMap<QString, QString>& date);
+    void UpdateSQLString (const QString& storage, const std::unordered_map<QString, QString>& date);
     QString FindPrevIdFromStorage (const QString& storage_id);
     QString FindNextOrPrevIdFromStorage (const QString& storage_id, const QString& operation);
     double AveragePriceIn (const QString& id_storage);
@@ -179,8 +179,8 @@ private:
     bool first_launch = true;
     int index_row_change_item = -1;
     // void UpdateModelDeals ();
-    QMap<QString, QString> CheckDealsParam (QMap<QString, QString>& date);
-    QMap<QString, QString> CheckDealsParam (const QString& id_deals);
+    std::unordered_map<QString, QString> CheckDealsParam (std::unordered_map <QString, QString>& date);
+    std::unordered_map<QString, QString> CheckDealsParam (const QString& id_deals);
 
     QFont current_table_view_font = QFont("Segoe UI", 10);
 

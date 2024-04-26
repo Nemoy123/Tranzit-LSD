@@ -95,7 +95,7 @@ void SettingWindow::on_pushButton_2_clicked()
 
 void SettingWindow::on_pushButton_3_clicked() // применить настройки сервера
 {
-    QMap <QString, QString> server_set;
+    std::unordered_map <QString, QString> server_set;
     server_set["base_name_"] = ui->textEdit_server_name->toPlainText();
     server_set["server_"] = ui->textEdit_ip_server->toPlainText();
     server_set["port_"] = ui->textEdit_port_server->toPlainText();

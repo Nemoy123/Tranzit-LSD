@@ -1159,13 +1159,13 @@ void MainWindow::on_pushButton_deals_clicked()
                             StorageAdding(id_string, new_text);
                             index_row_change_item = item->index().row();
 
-                            std::unordered_map<QString,QString>::iterator it = date.begin();
-                            for(;it != date.end(); ++it){
-                                if (it->first == "date_of_deal") {
-                                    QDate date = QDate::fromString(it->second, "yyyy-MM-dd");
-                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it->first)),date.toString("dd-MM-yyyy"));
+
+                            for(const auto& [name, val]:date){
+                                if (name == "date_of_deal") {
+                                    QDate date_cal = QDate::fromString(val, "dd-MM-yyyy");
+                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(name)),date_cal.toString("dd-MM-yyyy"));
                                 } else {
-                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it->first)),it->second);
+                                    ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(name)),val);
                                 }
                             }
 

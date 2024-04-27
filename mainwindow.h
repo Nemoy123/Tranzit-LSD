@@ -132,7 +132,7 @@ signals:
     void signal_return_font (QFont font);
 
 private:
-    const double version = 1.6; // версия программы
+    const double version = 1.62; // версия программы
 
     bool LoadConfig ();
     bool createConnection();
@@ -196,7 +196,8 @@ private:
     QMenu* menu_deals = nullptr;
 
     template <typename... Tstring>
-    QVector<QString> GetDateFromSQL (const QString&id_string, Tstring&&... request);
+    QVector<QString> GetDateFromSQL (const QString &id_string, Tstring&... request);
+    std::unordered_map<QString, QString> GetRowFromSQL (const QString &id_string);
 
     QDate start_date_deals;
     QDate end_date_deals;
@@ -204,6 +205,9 @@ private:
     QDate end_date_storages;
 
     void CreateSQLTablesAfterSetup();
+    const QVector <QString> vect_column_deals_ {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+                                       "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
 
+    bool change_item_start = false;
 };
 #endif // MAINWINDOW_H

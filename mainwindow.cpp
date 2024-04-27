@@ -369,10 +369,12 @@ void MainWindow::CreateSQLTablesAfterSetup()
     std::string result = R"(
         CREATE TABLE IF NOT EXISTS control (
             id BIGSERIAL NOT NULL PRIMARY KEY,
-            time_of_changes TIMESTAMP,
+            time_of_changes TIMESTAMP default current_timestamp,
             user_name VARCHAR(150),
-            id_deals BIGSERIAL NOT NULL,
+            id_from_table BIGSERIAL NOT NULL,
             table_name VARCHAR(150),
+            delete BOOLEAN,
+            new_stroke BOOLEAN,
 
             manager VARCHAR(150),
             date_of_deal DATE,
@@ -603,13 +605,30 @@ std::optional<QSqlQuery> MainWindow::ExecuteSQL(const QString& command){
 }
 
 void MainWindow::UpdateSQLString (const QString& storage, const std::unordered_map<QString, QString>& date){
-    // регистрация старых значений
+
     if (date.empty()) return;
     if (storage == "deals") {
+        // регистрация старых значений
         std::unordered_map <QString, QString> date_old;
+        date_old = GetRowFromSQL(date.at("id"));
+        date_old.erase("id");
+        date_old["id_from_table"] = date.at("id");
+        date_old["table_name"] = "deals";
+        date_old["user_name"] = "default";
+        date_old["delete"] = "false";
+        date_old["new_stroke"] = "false";
 
-
-        //UpdateSQLString("control", date_old);
+        //добавить новые значения
+        for (const auto& [name, val] : date) {
+            if (name != "id") {
+                QString new_name = name + "_new";
+                date_old [new_name] = val;
+            }
+        }
+        if (!AddRowSQL("control", date_old)) {
+            QMessageBox::critical(this, "История не сохранена", "Хозяин! Всё пропало!");
+            return;
+        };
     }
 
     QString command = "UPDATE " + storage + " SET ";
@@ -998,6 +1017,7 @@ bool FilterEmptyChecking (const std::map <QString, QString>& filter_deals) {
 void MainWindow::on_pushButton_deals_clicked()
 
 {
+    change_item_start =false;
     if (start_date_deals.isNull() || end_date_deals.isNull()) {
         QString today_date = GetCurrentDate ();
         QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
@@ -1108,7 +1128,10 @@ void MainWindow::on_pushButton_deals_clicked()
     QObject::connect(model, &QStandardItemModel::itemChanged,
                      [&](QStandardItem *item) {
                          qDebug() << "Item changed:" << item->index().row() << item->index().column() << item->text();
-
+                        if (change_item_start) {
+                             qDebug() << "change_item_start exit";
+                             return;
+                        }
                         QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
                                                 "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
                         int column = item->index().column();
@@ -1122,11 +1145,16 @@ void MainWindow::on_pushButton_deals_clicked()
                         //проверить значение в базе, надо ли менять
                         QVector<QString> old_date = GetDateFromSQL (id_string, vect.at(column));
                         if (old_date.at(0) != new_text) {
+                            change_item_start = true;
                             std::unordered_map <QString, QString> date;
                             date ["id"] = id_string;
                             date [vect.value(column)] = new_text;
-                            UpdateSQLString ("deals", date);
-                            date = CheckDealsParam(id_string);
+                            for (auto i = 0; i < vect.size(); ++i ) {
+                                date[vect.at(i)] = model->item(row,i)->text();
+                            }
+
+                            //UpdateSQLString ("deals", date);
+                            date = CheckDealsParam(date);
                             UpdateSQLString ("deals", date);
                             StorageAdding(id_string, new_text);
                             index_row_change_item = item->index().row();
@@ -1140,6 +1168,8 @@ void MainWindow::on_pushButton_deals_clicked()
                                     ui->tableView->model()->setData(ui->tableView->model()->index(row , vect.indexOf(it->first)),it->second);
                                 }
                             }
+
+                            change_item_start = false;
                             //on_pushButton_deals_clicked();
                         }
                     });
@@ -1296,6 +1326,22 @@ void MainWindow::on_pushButton_delete_clicked()
             }
             vect_prev_id.push_back( temp );
         }
+        //регистрация в архив
+
+            // регистрация старых значений
+            std::unordered_map <QString, QString> date_old;
+            date_old = GetRowFromSQL(main_table_id);
+            date_old.erase("id");
+            date_old["id_from_table"] = main_table_id;
+            date_old["table_name"] = "deals";
+            date_old["user_name"] = "default";
+            date_old["delete"] = "true";
+            date_old["new_stroke"] = "false";
+
+            if (!AddRowSQL("control", date_old)) {
+                QMessageBox::critical(this, "История не сохранена", "Хозяин! Всё пропало!");
+                return;
+            };
 
         // удаляем
         command = "DELETE FROM deals WHERE id = ";
@@ -1339,9 +1385,28 @@ QString MainWindow::GetCurrentDate () {
 
 void MainWindow::on_pushButton_new_clicked()
 {
-    ExecuteSQL (QString{"INSERT INTO deals (date_of_deal) VALUES ('"+ GetCurrentDate () + "')"});
+    auto calen_date = GetCurrentDate ();
+    auto query = ExecuteSQL (QString{"INSERT INTO deals (date_of_deal) VALUES ('"+ calen_date + "') RETURNING id"});
+    if (query) {
+        if (query.value().next()) {
+            QString id_new = query.value().value(0).toString();
+            // регистрация старых значений
+            std::unordered_map <QString, QString> date_old;
+            date_old["id_from_table"] = id_new;
+            date_old["table_name"] = "deals";
+            date_old["user_name"] = "default";
+            date_old["delete"] = "false";
+            date_old["new_stroke"] = "true";
+            date_old["date_of_deal_new"] = calen_date;
+            if (!AddRowSQL("control", date_old)) {
+                QMessageBox::critical(this, "История не сохранена", "Хозяин! Всё пропало!");
+                return;
+            };
+
+        }
+    }
     on_pushButton_deals_clicked();
-    //UpdateModelDeals();
+
 }
 
 
@@ -1899,11 +1964,11 @@ void MainWindow::slotDefaultRecord()
     int column = ui->tableView->selectionModel()->currentIndex().column();
     const QString id_string = FindID(row, id_number_column).toString();
     qDebug() << "ID " + id_string;
-    QVector <QString> vect_column_deals {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
-                          "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
+    // QVector <QString> vect_column_deals {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
+    //                       "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
     std::unordered_map<QString, QString> date;
     date["id"] = id_string;
-    date[vect_column_deals.at(column)] = "0";
+    date[vect_column_deals_.at(column)] = "0";
     UpdateSQLString ("deals", std::move(date));
     //если успешно поменять значение в модели
     //ui->tableView->selectionModel()->currentIndex().;
@@ -1987,26 +2052,27 @@ void MainWindow::CheckProgramUpdate()
     }
 }
 
-template <typename... Tn>
-QString Sum(const Tn&... vn) {
-    return (..., (vn + QString{","} ));
-}
+// template <typename... Tn>
+// QString Sum(const Tn&... vn) {
+//     return (..., (vn + QString{","} ));
+// }
 
 template<typename Tstring>
-QString TestRequest (const Tstring& stroke) {
-    if (stroke == "date_of_deal") {
-        return "to_char(date_of_deal, 'DD-MM-YYYY')";
+QString TestRequest (Tstring&& stroke) {
+    QString res = std::forward<Tstring>(stroke);
+    if (res == "date_of_deal") {
+        return "to_char(date_of_deal, 'DD-MM-YYYY'),";
     }
-    return stroke;
+    return res + ",";
 }
 
 template<typename... Tstring>
-QVector<QString> MainWindow::GetDateFromSQL(const QString &id_string, Tstring&&... request){
+QVector<QString> MainWindow::GetDateFromSQL(const QString &id_string, Tstring&... request){
 
     QString command = "SELECT ";
-
+    qDebug() << "Распаковка " <<sizeof...(request);
     if constexpr (sizeof...(request) != 0) {
-        command += Sum(TestRequest(std::forward<Tstring>(request))...);
+        command += (TestRequest(request) + ...);
     } else {return {};}
     if (command.back() == ',') {command.removeLast();}
     command += " FROM deals WHERE id = '" + id_string + "'";
@@ -2014,9 +2080,26 @@ QVector<QString> MainWindow::GetDateFromSQL(const QString &id_string, Tstring&&.
     QVector<QString> result;
 
     if (auto query = ExecuteSQL(command)) {
+
         while(query.value().next()) {
-            result.push_back( query.value().value(0).toString() ); // первое value это от optional
+            for (auto i =0; i < sizeof...(request); ++i) {
+                result.push_back( query.value().value(i).toString() ); // первое value это от optional
+            }
         }
+    }
+    return result;
+}
+
+std::unordered_map<QString, QString> MainWindow::GetRowFromSQL (const QString &id_string) {
+    std::unordered_map<QString, QString> result;
+    //result["id"] = id_string;
+    QVector<QString> res = GetDateFromSQL (id_string, vect_column_deals_.at(0), vect_column_deals_.at(1), vect_column_deals_.at(2),
+                                          vect_column_deals_.at(3),vect_column_deals_.at(4),vect_column_deals_.at(5),vect_column_deals_.at(6),
+                                          vect_column_deals_.at(7),vect_column_deals_.at(8),vect_column_deals_.at(9),vect_column_deals_.at(10),
+                                          vect_column_deals_.at(11),vect_column_deals_.at(12),vect_column_deals_.at(13),vect_column_deals_.at(14),
+                                          vect_column_deals_.at(15),vect_column_deals_.at(16), vect_column_deals_.at(17));
+    for (auto i =0; i < res.size(); ++i) {
+        result[vect_column_deals_.at(i)] = res.at(i);
     }
     return result;
 }

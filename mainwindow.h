@@ -16,6 +16,7 @@
 #include <QStyledItemDelegate>
 #include <QComboBox>
 #include <QItemDelegate>
+#include <QTimer>
 
 // Делегат для комбобокса внутри tableview
 class ComboBoxDelegate : public QItemDelegate
@@ -127,12 +128,13 @@ private slots:
     //void on_pushButton_clicked();
 
     void on_pushButton_filter_date_deals_clicked();
+    void UpdateTableTimer ();
 
 signals:
     void signal_return_font (QFont font);
 
 private:
-    const double version = 1.63; // версия программы
+    const double version = 1.65; // версия программы
 
     bool LoadConfig ();
     bool createConnection();
@@ -209,5 +211,8 @@ private:
                                        "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
 
     bool change_item_start = false;
+    size_t last_action_id = 0;
+    size_t CheckLastActionId ();
+    QTimer* timer;
 };
 #endif // MAINWINDOW_H

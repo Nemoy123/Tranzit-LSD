@@ -47,7 +47,7 @@ QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
                    editor->addItem(item);
         }
     } else {
-        qDebug() << "Error combobox delegate";
+        //qDebug() << "Error combobox delegate";
     }
     //editor->setCurrentIndex(editor->findText("Все"));
 
@@ -149,7 +149,7 @@ bool MainWindow::LoadConfig () {
     QFileInfo check_file(setting_file_);
     // check if file exists and if yes: Is it really a file and no directory?
     if (check_file.exists() && check_file.isFile()) {
-        qDebug() << "Есть файл";
+        //qDebug() << "Есть файл";
 
         QFile file(setting_file_);
         if (file.open(QIODevice::ReadOnly)) {
@@ -181,7 +181,7 @@ bool MainWindow::LoadConfig () {
             return true;
         }
     }
-    qDebug() << "Нет файла или файл не открылся";
+    //qDebug() << "Нет файла или файл не открылся";
     return false;
 }
 
@@ -218,8 +218,8 @@ void MainWindow::UpdateListStorage() {
     QString command = "SELECT DISTINCT storage_name FROM storages";
     QSqlQuery change_query = QSqlQuery(db_);
     if (!change_query.exec( command )) {
-        qDebug() << change_query.lastError().databaseText();
-        qDebug() << change_query.lastError().driverText();
+        //qDebug() << change_query.lastError().databaseText();
+        //qDebug() << change_query.lastError().driverText();
         return;
     }
     else {
@@ -285,7 +285,7 @@ std::unordered_map<QString, QString> MainWindow::CheckDealsParam (const QString&
                     // } else {
                         double temp = v.toDouble(&test_valid);
                         if (test_valid) {
-                            qDebug() << QString::number(temp, 'f',2);
+                            //qDebug() << QString::number(temp, 'f',2);
                             //model->setItem(row_count, i, new QStandardItem(QString::number(temp, 'f',2)));
                             date[vect.at(i)] = QString::number(temp, 'f',2);
                         } else {
@@ -358,7 +358,7 @@ QString MainWindow::FindDateFromIdDeals(const QString &id_deals)
             return query.value().value(0).toString();
         }
     } else {
-        qDebug() << "Ошибка";
+        //qDebug() << "Ошибка";
         return "-1";
     }
     return "-1";
@@ -578,7 +578,7 @@ MainWindow::MainWindow( QWidget *parent)
     db_ = QSqlDatabase::database("connection1");
     CreateSQLTablesAfterSetup();
     UpdateListStorage();
-
+    timer = new QTimer();
     on_pushButton_deals_clicked();
 }
 
@@ -597,8 +597,8 @@ QVariant MainWindow::FindID (int row, int column) {
 std::optional<QSqlQuery> MainWindow::ExecuteSQL(const QString& command){
     QSqlQuery query = QSqlQuery(db_);
     if (!query.exec( command )) {
-        qDebug() << query.lastError().databaseText();
-        qDebug() << query.lastError().driverText();
+        //qDebug() << query.lastError().databaseText();
+        //qDebug() << query.lastError().driverText();
         return {};
     }
     return query;
@@ -965,7 +965,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
 
                 date["balance_end"] = QString::number((date["start_balance"].toDouble() - date["departure_kg"].toDouble()), 'f', 2); // заполняем конечное сальдо
                 if (!AddRowSQL("storages", date)) {
-                    qDebug() << "ERROR AddStorageDate date";
+                    //qDebug() << "ERROR AddStorageDate date";
                 }
             }
             id_new = AddRowSQLString ("storages", command);
@@ -993,7 +993,7 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
         }
         UpdateAverageForLater (id_new); // обновить среднюю цену для всех отгрузок что позже
         if (id_new == "-1") {
-            qDebug() << "ERROR AddStorageDate command";
+            //qDebug() << "ERROR AddStorageDate command";
         }
         ChangeFutureStartSaldo(id_new);
         UpdateListStorage();
@@ -1014,11 +1014,26 @@ bool FilterEmptyChecking (const std::map <QString, QString>& filter_deals) {
     return true;
 }
 
+size_t MainWindow::CheckLastActionId () {
+    QString command {"SELECT id FROM control ORDER BY id DESC LIMIT 1"};
+    if (auto query = ExecuteSQL(command)) {
+        if(query.value().next()) {
+          return query.value().value(0).toString().toULongLong();
+        }
+    }
+    return{};
+}
+
+
 void MainWindow::on_pushButton_deals_clicked()
 
 {
     change_item_start =false;
     if (start_date_deals.isNull() || end_date_deals.isNull()) {
+        last_action_id = CheckLastActionId();
+        connect(timer, SIGNAL(timeout()), this, SLOT(UpdateTableTimer()));
+        timer->start(60000); // И запустим таймер
+
         QString today_date = GetCurrentDate ();
         QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
         start_date_deals.setDate(date_temp.year(), date_temp.month(), 1);
@@ -1087,7 +1102,7 @@ void MainWindow::on_pushButton_deals_clicked()
         command += "ORDER BY date_of_deal ASC, id ASC";
 
     }
-    qDebug() << command;
+    //qDebug() << command;
     if (std::optional<QSqlQuery> query = ExecuteSQL(command)) {
             int row_count = 0; // начинаем с 1 строки. 0 строка под комбобоксы
             while(query.value().next()){
@@ -1097,7 +1112,7 @@ void MainWindow::on_pushButton_deals_clicked()
                         bool test_valid = false;
                         double temp = v.toDouble(&test_valid);
                             if (test_valid) {
-                                qDebug() << QString::number(temp, 'f',2);
+                                //qDebug() << QString::number(temp, 'f',2);
                                 model->setItem(row_count, i, new QStandardItem(QString::number(temp, 'f',2)));
                             } else {
                                 model->setItem(row_count, i, new QStandardItem(v.toString()));
@@ -1127,9 +1142,9 @@ void MainWindow::on_pushButton_deals_clicked()
 
     QObject::connect(model, &QStandardItemModel::itemChanged,
                      [&](QStandardItem *item) {
-                         qDebug() << "Item changed:" << item->index().row() << item->index().column() << item->text();
+                         //qDebug() << "Item changed:" << item->index().row() << item->index().column() << item->text();
                         if (change_item_start) {
-                             qDebug() << "change_item_start exit";
+                             //qDebug() << "change_item_start exit";
                              return;
                         }
                         QVector <QString> vect {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
@@ -1348,8 +1363,8 @@ void MainWindow::on_pushButton_delete_clicked()
         command += "'" + main_table_id + "'";
         QSqlQuery change_query = QSqlQuery(db_);
         if (!change_query.exec( command )) {
-            qDebug() << change_query.lastError().databaseText();
-            qDebug() << change_query.lastError().driverText();
+            //qDebug() << change_query.lastError().databaseText();
+            //qDebug() << change_query.lastError().driverText();
             return;
         }
 
@@ -1590,7 +1605,7 @@ void MainWindow::SaveSettings () {
 void MainWindow::ChangeSettingServer(std::unordered_map<QString, QString>& map_set) {
     if (db_.isOpen()) {
         db_.close();
-        qDebug() << "Old DB closed";
+        //qDebug() << "Old DB closed";
     }
     QString buffer{};
     QTextStream stream(&buffer);
@@ -1599,7 +1614,7 @@ void MainWindow::ChangeSettingServer(std::unordered_map<QString, QString>& map_s
     cl_enc.encrypt(stream.readAll());
 
     createConnection();
-    qDebug() << "Connection new opened?";
+    //qDebug() << "Connection new opened?";
 }
 
 
@@ -1609,22 +1624,22 @@ void MainWindow::on_settings_triggered()
     set_window = new SettingWindow;
     set_window->setModal(true);
     if (!(connect ( set_window, &SettingWindow::signal_importcsv, this, &MainWindow::ParsingCSV ) ) ) {
-        qDebug() << "connect false";
+        //qDebug() << "connect false";
     }
     if (!(connect ( set_window, &SettingWindow::signal_set_server, this, &MainWindow::ChangeSettingServer ) ) ) {
-        qDebug() << "connect setting false";
+        //qDebug() << "connect setting false";
     }
     if (!(connect ( set_window, &SettingWindow::signal_check_store, this, &MainWindow::CheckStorages ) ) ) {
-        qDebug() << "connect check_store false";
+        //qDebug() << "connect check_store false";
     }
     if (!(connect ( set_window, &SettingWindow::signal_font_change, this, &MainWindow::ChangeTableFont ) ) ) {
-        qDebug() << "connect font change false";
+        //qDebug() << "connect font change false";
     }
     if (!(connect ( set_window, &SettingWindow::signal_font_default, this, &MainWindow::CheckCurrentFont ) ) ) {
-        qDebug() << "connect font default false";
+        //qDebug() << "connect font default false";
     }
     if (!(connect ( this, &MainWindow::signal_return_font, set_window, &SettingWindow::ChangeCurrentTableFont ) ) ) {
-        qDebug() << "connect current font return false";
+        //qDebug() << "connect current font return false";
     }
 
     set_window->exec();
@@ -1836,7 +1851,7 @@ bool Parsing_line(QString&& line, std::vector<std::unordered_map<QString, QStrin
 }
 
 void MainWindow::ParsingCSV (QFile& file) {
-    qDebug() << "ParsingCSV";
+    //qDebug() << "ParsingCSV";
 
     std::unordered_map<QString, QString> date;
     QString stroke;
@@ -1848,7 +1863,7 @@ void MainWindow::ParsingCSV (QFile& file) {
         QString line = in.readLine();
 
         if (!Parsing_line(std::move(line), vect)) {
-            qDebug() << "Ошибка в строке " + QString::number(counter);
+            //qDebug() << "Ошибка в строке " + QString::number(counter);
             QMessageBox::critical(0, "Error in file", "Ошибка в строке " + QString::number(counter), QMessageBox::Cancel);
             break;
         }
@@ -1860,10 +1875,10 @@ void MainWindow::ParsingCSV (QFile& file) {
         auto id = AddRowSQLString("deals", item);
         QString val{};
         StorageAdding(id, val);
-        qDebug() <<"Строка "+ QString::number(counter);
+        //qDebug() <<"Строка "+ QString::number(counter);
         ++counter;
     }
-    qDebug() << "ParsingCSV end GOOD";
+    //qDebug() << "ParsingCSV end GOOD";
 
     //AddRowSQL (const QString& storage, const std::unordered_map<QString, QString>& date_)
 }
@@ -1963,7 +1978,7 @@ void MainWindow::slotDefaultRecord()
     int id_number_column = 17;
     int column = ui->tableView->selectionModel()->currentIndex().column();
     const QString id_string = FindID(row, id_number_column).toString();
-    qDebug() << "ID " + id_string;
+    //qDebug() << "ID " + id_string;
     // QVector <QString> vect_column_deals {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
     //                       "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager", "id"};
     std::unordered_map<QString, QString> date;
@@ -2070,7 +2085,7 @@ template<typename... Tstring>
 QVector<QString> MainWindow::GetDateFromSQL(const QString &id_string, Tstring&... request){
 
     QString command = "SELECT ";
-    qDebug() << "Распаковка " <<sizeof...(request);
+    //qDebug() << "Распаковка " <<sizeof...(request);
     if constexpr (sizeof...(request) != 0) {
         command += (TestRequest(request) + ...);
     } else {return {};}
@@ -2175,5 +2190,16 @@ void MainWindow::on_pushButton_filter_date_deals_clicked()
     end_date_deals = ui->dateEdit_end->date();
 
     on_pushButton_deals_clicked();
+}
+
+void MainWindow::UpdateTableTimer(){
+    auto id = CheckLastActionId();
+
+    if (last_action_id != id) {
+        last_action_id = id;
+        qDebug() <<"Test + "<< "LAST Id" << id;
+        on_pushButton_deals_clicked();
+    }
+    qDebug() <<"Test negative "  << "LAST Id" << id;
 }
 

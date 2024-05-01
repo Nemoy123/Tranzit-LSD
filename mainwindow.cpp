@@ -595,6 +595,10 @@ QVariant MainWindow::FindID (int row, int column) {
 }
 
 std::optional<QSqlQuery> MainWindow::ExecuteSQL(const QString& command){
+    while (!db_.open()) {// Если соединение с базой данных не удастся -- вход в цикл
+        QMessageBox::critical(0, "Нет соединения с базой данных", "Проверьте сетевое соединение", QMessageBox::Cancel);
+        //return{};
+    }
     QSqlQuery query = QSqlQuery(db_);
     if (!query.exec( command )) {
         //qDebug() << query.lastError().databaseText();
@@ -1464,12 +1468,10 @@ void MainWindow::on_listWidget_itemDoubleClicked(QListWidgetItem *item)
 }
 
 void MainWindow::ShowStorages(const QString& store) {
-    if (!db_.open()) {// Если соединение с базой данных не удастся, оно появится
-        QMessageBox::critical(0, "Cannot open database", "Unable to establish a database connection", QMessageBox::Cancel);
-        return;
-    }
+
     last_storage_query_ = store;
     ui->filter_widget->show();
+    ui->Widget_filter_date->show();
     ui->tableView_header->hide();
     ui->tableView->verticalHeader()->setVisible(true); // включить номерацию строк
     ui->tableView->horizontalHeader()->setFont(current_table_view_font);
@@ -1477,49 +1479,69 @@ void MainWindow::ShowStorages(const QString& store) {
     // вывести таблицу 1
     // вывести пустую строку
      // сделать выборку SQL по наименованию товара
+
+    if (start_date_storages_.isNull() || end_date_storages_.isNull()) {
+        QString today_date = GetCurrentDate ();
+        QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
+        start_date_storages_.setDate(2024, 1, 1);
+        end_date_storages_.setDate(date_temp.year(), date_temp.month(), date_temp.daysInMonth());
+        //start_date_storages_ = ui->dateEdit_start->date();
+        ui->dateEdit_start->setDate(start_date_storages_);
+        ui->dateEdit_end->setDate(end_date_storages_);
+    }
+
+
     QString goods_name_command;
     QString command_storages;
     QString command;
     std::set <QString> all_storages;
+    QString date_string {" date_of_deal >= '" + start_date_storages_.toString("yyyy-MM-dd")
+                        + "' AND date_of_deal <= '" + end_date_storages_.toString("yyyy-MM-dd") + "' "};
 
-        if (store != "_Все склады") {
+    if (store != "_Все склады") {
             goods_name_command = "SELECT DISTINCT tovar_short_name FROM storages WHERE storage_name = '" + store + "'";
+            goods_name_command += " AND " + date_string;
+
             all_storages.insert(store);
         } else {
             command_storages = "SELECT DISTINCT storage_name FROM storages";
+            command_storages += " WHERE " + date_string;
             goods_name_command = "SELECT DISTINCT tovar_short_name FROM storages";
-
+            goods_name_command += " WHERE " + date_string;
             // сделать std::set складов
 
                 auto storages_query = ExecuteSQL(command_storages);
+            if (storages_query.has_value()) {
                 while(storages_query.value().next()){
                     all_storages.insert(storages_query.value().value(0).toString());
                 }
+            }
 
         }
-        // сделать std::set наименований товара
-        ui->comboBox_filter->clear();
-        ui->comboBox_filter->addItem("Все");
         std::set <QString> goods_name_set{};
         std::set <QString> combobox_filter_set{};
 
-        auto query_goods_name = ExecuteSQL(goods_name_command);
-        while(query_goods_name.value().next()){
-            combobox_filter_set.insert(query_goods_name.value().value(0).toString());
-            ui->comboBox_filter->addItem(query_goods_name.value().value(0).toString());
+        if (!all_storages.empty()) { // если список складов не пуст
+            // сделать std::set наименований товара
+            ui->comboBox_filter->clear();
+            ui->comboBox_filter->addItem("Все");
+            auto query_goods_name = ExecuteSQL(goods_name_command);
+            while(query_goods_name.value().next()){
+                combobox_filter_set.insert(query_goods_name.value().value(0).toString());
+                ui->comboBox_filter->addItem(query_goods_name.value().value(0).toString());
+            }
+            if (!last_storage_filter_.isEmpty()) {
+                ui->comboBox_filter->setCurrentIndex(ui->comboBox_filter->findText(last_storage_filter_));
+            }
+            else {
+                ui->comboBox_filter->setCurrentIndex(ui->comboBox_filter->findText("Все"));
+            }
+            if (!storages_filter_goods.isEmpty()) {
+               goods_name_set.insert(storages_filter_goods);
+            } else {
+                goods_name_set = combobox_filter_set;
+            }
         }
-        if (!last_storage_filter_.isEmpty()) {
-            ui->comboBox_filter->setCurrentIndex(ui->comboBox_filter->findText(last_storage_filter_));
-        }
-        else {
-            ui->comboBox_filter->setCurrentIndex(ui->comboBox_filter->findText("Все"));
-        }
-        if (!storages_filter_goods.isEmpty()) {
-           goods_name_set.insert(storages_filter_goods);
-        } else {
-            goods_name_set = combobox_filter_set;
-        }
-
 
 
 
@@ -1561,18 +1583,19 @@ void MainWindow::ShowStorages(const QString& store) {
                 command = "SELECT to_char(date_of_deal, 'DD-MM-YYYY'), operation, start_balance, arrival_doc, arrival_fact, departure_litres,plotnost,"
                           "departure_kg,balance_end,nedoliv,price_tn,rjd_number,storage_name, id, "
                           "main_table_id, tovar_short_name FROM storages WHERE storage_name = '";
-                command += storage_one + "' AND tovar_short_name = '" + product + "' ORDER BY date_of_deal, id";
+                command += storage_one + "' AND tovar_short_name = '" + product + "'" + " AND " + date_string + " ORDER BY date_of_deal, id";
 
 
             auto query_storages = ExecuteSQL(command);
+            if (query_storages.has_value()) {
+                while(query_storages.value().next()){
 
-            while(query_storages.value().next()){
+                    for (auto i = 0; i < 16; ++i) {
+                        model_storages_->setItem(row_count, i, new QStandardItem(query_storages.value().value(i).toString()));
 
-                for (auto i = 0; i < 16; ++i) {
-                    model_storages_->setItem(row_count, i, new QStandardItem(query_storages.value().value(i).toString()));
-
+                    }
+                    ++row_count;
                 }
-                ++row_count;
             }
         }
 
@@ -2191,10 +2214,19 @@ void MainWindow::on_pushButton_filter_date_deals_clicked()
         QMessageBox::critical(this, "Дата не корректна", "Проверьте конечную дату!");
         return;
     }
-    start_date_deals = ui->dateEdit_start->date();
-    end_date_deals = ui->dateEdit_end->date();
 
-    on_pushButton_deals_clicked();
+    //qDebug() << "Количество столбцов в модели: " << ui->tableView->model()->columnCount();
+    if (ui->tableView->model()->columnCount() == 18) {
+        start_date_deals = ui->dateEdit_start->date();
+        end_date_deals = ui->dateEdit_end->date();
+        on_pushButton_deals_clicked();
+    }
+    else if (ui->tableView->model()->columnCount() == 16) {
+        start_date_storages_ = ui->dateEdit_start->date();
+        end_date_storages_ = ui->dateEdit_end->date();
+        ShowStorages(last_storage_query_);
+    }
+
 }
 
 void MainWindow::UpdateTableTimer(){
@@ -2202,9 +2234,9 @@ void MainWindow::UpdateTableTimer(){
 
     if (last_action_id != id) {
         last_action_id = id;
-        qDebug() <<"Test + "<< "LAST Id" << id;
+        //qDebug() <<"Test + "<< "LAST Id" << id;
         on_pushButton_deals_clicked();
     }
-    qDebug() <<"Test negative "  << "LAST Id" << id;
+    //qDebug() <<"Test negative "  << "LAST Id" << id;
 }
 

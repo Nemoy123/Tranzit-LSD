@@ -203,8 +203,8 @@ private:
 
     QDate start_date_deals;
     QDate end_date_deals;
-    QDate start_date_storages;
-    QDate end_date_storages;
+    QDate start_date_storages_;
+    QDate end_date_storages_;
 
     void CreateSQLTablesAfterSetup();
     const QVector <QString> vect_column_deals_ {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",

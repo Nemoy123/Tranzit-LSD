@@ -1663,11 +1663,8 @@ void MainWindow::on_pushButton_paste_clicked()
         QMessageBox::critical(this, "НЕ СКОПИРОВАНО", "Выделите нужные строки и нажмите Скопировать!");
         return;
     }
-    //bool begin = true;
+
     for (const auto& row : index_set_rows_copy) {
-        //auto row = index_for_copy_;
-        //нашли ID копируемого объекта
-        //auto id_copy = FindID (index_for_copy->row(), index_for_copy->column()).toString();
         std::unordered_map<QString, QString> date;
         QVector <QString> vect_names {"date_of_deal", "customer", "number_1c", "postavshik", "neftebaza", "tovar_short_name", "litres", "plotnost", "ves", "price_in_tn",
                                     "price_out_tn", "price_out_litres", "transp_cost_tn", "commission", "rentab_tn", "profit", "manager"};
@@ -1676,6 +1673,7 @@ void MainWindow::on_pushButton_paste_clicked()
         // копируем всё кроме id
         for (auto column = 0; column < model->columnCount()-1; ++column)
         {
+            if (column == 2) {date [vect_names[column]] = "0"; continue;}
             date [vect_names[column]] = model->item(row, column)->data(Qt::DisplayRole).toString();
 
         }
@@ -2013,57 +2011,64 @@ void MainWindow::CheckProgramUpdate()
 {
     QDir mydir("\\\\192.168.154.36\\Archive\\soft\\");
 
-    QStringList list;
-    list << "Tranzit_LSD_setup_ver*.exe";
-    mydir.setNameFilters(list);
-    mydir.setSorting(QDir::Name);
-    list = mydir.entryList ();
-    //qDebug()<<list;
-    QString updfile = list.back();
-    updfile.remove(0, 21);
-    //qDebug()<< "Удалили начало: " << updfile;
-    updfile.remove(updfile.lastIndexOf(".exe"), 4);
-    //qDebug()<< "Удалили конец: "<<updfile;
-    if (updfile.toDouble() > version) {
-        //QMessageBox::warning(this, "Программа устарела","Вышла новая версия, запускаю установку");
-        QMessageBox msgbox;
+    if (mydir.exists()) {
 
-        msgbox.setText("Обновление");
-        msgbox.setInformativeText("Вышла новая версия " + QString::number(updfile.toDouble(), 'f', 2) + ", запускаю установку. \n После нажатия \"Ок\" не делайте ничего, пока не появится окно установки программы!");
-        msgbox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
-        msgbox.setIcon(QMessageBox::Warning);
-        msgbox.setDefaultButton(QMessageBox::Ok);
+        QStringList list;
+        list << "Tranzit_LSD_setup_ver*.exe";
+        mydir.setNameFilters(list);
+        mydir.setSorting(QDir::Name);
+        list = mydir.entryList ();
+        //qDebug()<<list;
+        QString updfile = list.back();
+        updfile.remove(0, 21);
+        //qDebug()<< "Удалили начало: " << updfile;
+        updfile.remove(updfile.lastIndexOf(".exe"), 4);
+        //qDebug()<< "Удалили конец: "<<updfile;
+        if (updfile.toDouble() > version) {
+            //QMessageBox::warning(this, "Программа устарела","Вышла новая версия, запускаю установку");
+            QMessageBox msgbox;
 
-        int res = msgbox.exec();
-        if (res == QMessageBox::Ok) {//нажата кнопка Ok
+            msgbox.setText("Обновление");
+            msgbox.setInformativeText("Вышла новая версия " + QString::number(updfile.toDouble(), 'f', 2) + ", запускаю установку. \n После нажатия \"Ок\" не делайте ничего, пока не появится окно установки программы!");
+            msgbox.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+            msgbox.setIcon(QMessageBox::Warning);
+            msgbox.setDefaultButton(QMessageBox::Ok);
 
-            //qDebug()<< "Начать обновление";
-            QDir dir("Update");
+            int res = msgbox.exec();
+            if (res == QMessageBox::Ok) {//нажата кнопка Ok
 
-            if (dir.exists()) {
-                dir.removeRecursively(); // удалить папку с содержимым
+                //qDebug()<< "Начать обновление";
+                QDir dir("Update");
+
+                if (dir.exists()) {
+                    dir.removeRecursively(); // удалить папку с содержимым
+                }
+                if (!dir.mkpath(".")) {
+                    QMessageBox::critical(0, "Cannot make path",
+                                          "Не могу создать папку для обновления, проверьте свободное место на диске и запустите программу с правами администратора", QMessageBox::Cancel);
+                    MainWindow::~MainWindow();
+                };
+
+
+                QString file = mydir.absolutePath() + "/" + list.back();
+                // qDebug()<< file;
+                if (QFile::exists("./Update/"+list.back())){
+                    QFile::remove("./Update/"+list.back());
+                }
+                // qDebug()<< "./Update/"+list.back();
+
+                QFile::copy(file, "./Update/"+list.back());
+
+                QProcess::startDetached("./Update/"+list.back());
             }
-            if (!dir.mkpath(".")) {
-                QMessageBox::critical(0, "Cannot make path",
-                                      "Не могу создать папку для обновления, проверьте свободное место на диске и запустите программу с правами администратора", QMessageBox::Cancel);
-                MainWindow::~MainWindow();
-            };
 
-
-            QString file = mydir.absolutePath() + "/" + list.back();
-            // qDebug()<< file;
-            if (QFile::exists("./Update/"+list.back())){
-                QFile::remove("./Update/"+list.back());
-            }
-            // qDebug()<< "./Update/"+list.back();
-
-            QFile::copy(file, "./Update/"+list.back());
-
-            QProcess::startDetached("./Update/"+list.back());
+            msgbox.close();
+            MainWindow::~MainWindow();
         }
-
-        msgbox.close();
-        MainWindow::~MainWindow();
+    }
+    else {
+        QMessageBox::critical(0, "Путь для обновления не доступен",
+                              "Не могу проверить обновление программы", QMessageBox::Cancel);
     }
 }
 

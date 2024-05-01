@@ -214,5 +214,6 @@ private:
     size_t last_action_id = 0;
     size_t CheckLastActionId ();
     QTimer* timer;
+    std::optional<QDate> CheckDateLastOperation (); // вернет дату последней операции
 };
 #endif // MAINWINDOW_H

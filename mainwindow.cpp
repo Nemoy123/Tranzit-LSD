@@ -1028,6 +1028,20 @@ size_t MainWindow::CheckLastActionId () {
     return{};
 }
 
+std::optional<QDate> MainWindow::CheckDateLastOperation()
+{
+    QDate result;
+    QString command {"SELECT date_of_deal FROM deals ORDER BY date_of_deal DESC LIMIT 1"};
+    if (auto query = ExecuteSQL(command)) {
+        if(query.value().next()) {
+            result = QDate::fromString(query.value().value(0).toString(),"yyyy-MM-dd");
+            return result;
+        }
+    }
+    return std::nullopt;
+}
+
+
 
 void MainWindow::on_pushButton_deals_clicked()
 
@@ -1037,11 +1051,16 @@ void MainWindow::on_pushButton_deals_clicked()
         last_action_id = CheckLastActionId();
         connect(timer, SIGNAL(timeout()), this, SLOT(UpdateTableTimer()));
         timer->start(60000); // И запустим таймер
-
-        QString today_date = GetCurrentDate ();
-        QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
-        start_date_deals.setDate(date_temp.year(), date_temp.month(), 1);
-        end_date_deals.setDate(date_temp.year(), date_temp.month(), date_temp.daysInMonth());
+        std::optional<QDate> last_op = CheckDateLastOperation();
+        if (last_op.has_value()) {
+           start_date_deals.setDate(last_op.value().year(), last_op.value().month(), 1);
+           end_date_deals.setDate(last_op.value().year(), last_op.value().month(), last_op.value().daysInMonth());
+        } else {
+            QString today_date = GetCurrentDate ();
+            QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
+            start_date_deals.setDate(date_temp.year(), date_temp.month(), 1);
+            end_date_deals.setDate(date_temp.year(), date_temp.month(), date_temp.daysInMonth());
+        }
     }
     filter_deals["start_date_deals"] = start_date_deals.toString("yyyy-MM-dd");
     filter_deals["end_date_deals"] = end_date_deals.toString("yyyy-MM-dd");

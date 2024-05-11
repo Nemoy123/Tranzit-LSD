@@ -11,6 +11,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql)
+#find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Concurrent)
+find_package(Threads)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -18,6 +21,31 @@ set(PROJECT_SOURCES
         mainwindow.h
         mainwindow.ui
 )
+
+### я добавил
+# if(untitled WrapVulkan::WrapVulkan)
+#     set(WrapVulkan_FOUND ON)
+#     return()
+# endif()
+
+# set(WrapVulkan_FOUND OFF)
+
+# find_package(Vulkan ${WrapVulkan_FIND_VERSION} QUIET)
+
+# if(Vulkan_FOUND)
+#     set(WrapVulkan_FOUND ON)
+
+#     add_library(WrapVulkan::WrapVulkan INTERFACE IMPORTED)
+#     target_link_libraries(WrapVulkan::WrapVulkan INTERFACE Vulkan::Vulkan)
+# endif()
+
+# include(FindPackageHandleStandardArgs)
+# find_package_handle_standard_args(WrapVulkan DEFAULT_MSG Vulkan_LIBRARY Vulkan_INCLUDE_DIR)
+
+
+## конец вставки
+
+
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(untitled
@@ -48,6 +76,7 @@ else()
 endif()
 
 target_link_libraries(untitled PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Sql)
+target_link_libraries(untitled PRIVATE Qt${QT_VERSION_MAJOR}::Concurrent)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

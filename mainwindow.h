@@ -17,6 +17,7 @@
 #include <QComboBox>
 #include <QItemDelegate>
 #include <QTimer>
+#include <QtConcurrent>
 
 // Делегат для комбобокса внутри tableview
 class ComboBoxDelegate : public QItemDelegate
@@ -37,7 +38,7 @@ public:
     void updateEditorGeometry(QWidget *editor,
                               const QStyleOptionViewItem &option, const QModelIndex &index) const;
 private:
-    std::vector < std::vector<QString> >* vect_;
+    std::vector < std::vector<QString> >* vect_delegate_;
     std::map <QString, QString>* filter_deals_;
 };
 //конец делегата
@@ -134,11 +135,11 @@ signals:
     void signal_return_font (QFont font);
 
 private:
-    const double version = 1.66; // версия программы
+    const double version_ = 1.68; // версия программы
 
     bool LoadConfig ();
     bool createConnection();
-    void CheckProgramUpdate();
+    static void CheckProgramUpdate(const double& version);
 
     QSqlDatabase db_;
     QString server_ = "localhost";

@@ -25,11 +25,12 @@
 #include <QFileDialog>
 #include <stringapiset.h>
 #include <QFile>
+#include <QFuture>
 
 
 ComboBoxDelegate::ComboBoxDelegate(QObject *parent, std::vector < std::vector<QString> >* vect,  std::map <QString, QString>* filter_deals )
     : QItemDelegate(parent)
-    , vect_(vect)
+    , vect_delegate_(vect)
     , filter_deals_(filter_deals)
     {
 
@@ -42,12 +43,12 @@ QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
     QComboBox *editor = new QComboBox(parent);
 
     editor->addItem("Все");
-    if (vect_ != nullptr) {
-        for (const auto& item: (*vect_).at(index.column())) {
+    if (vect_delegate_) {
+        for (const auto& item: (*vect_delegate_).at(index.column())) {
                    editor->addItem(item);
         }
     } else {
-        //qDebug() << "Error combobox delegate";
+        qDebug() << "Error combobox delegate";
     }
     //editor->setCurrentIndex(editor->findText("Все"));
 
@@ -569,7 +570,7 @@ MainWindow::MainWindow( QWidget *parent)
 
 
     ui->setupUi(this);
-    CheckProgramUpdate();
+    auto future  = QtConcurrent::run( CheckProgramUpdate, version_ );
 
 
     createConnection();
@@ -1008,15 +1009,15 @@ bool MainWindow::StorageAdding(const QString& id_string, QString& new_text) {
     return false;
 }
 
-bool FilterEmptyChecking (const std::map <QString, QString>& filter_deals) {
-    if (filter_deals.empty()) {return true;}
-    for (const auto& [key, value] : filter_deals) {
-        if (value != "Все" && !value.isEmpty()) {
-            return false;
-        }
-    }
-    return true;
-}
+// bool FilterEmptyChecking (const std::map <QString, QString>& filter_deals) {
+//     if (filter_deals.empty()) {return true;}
+//     for (const auto& [key, value] : filter_deals) {
+//         if (value != "Все" && !value.isEmpty()) {
+//             return false;
+//         }
+//     }
+//     return true;
+// }
 
 size_t MainWindow::CheckLastActionId () {
     QString command {"SELECT id FROM control ORDER BY id DESC LIMIT 1"};
@@ -1052,15 +1053,14 @@ void MainWindow::on_pushButton_deals_clicked()
         connect(timer, SIGNAL(timeout()), this, SLOT(UpdateTableTimer()));
         timer->start(60000); // И запустим таймер
         std::optional<QDate> last_op = CheckDateLastOperation();
+        QString today_date = GetCurrentDate ();
+        QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
         if (last_op.has_value()) {
            start_date_deals.setDate(last_op.value().year(), last_op.value().month(), 1);
-           end_date_deals.setDate(last_op.value().year(), last_op.value().month(), last_op.value().daysInMonth());
         } else {
-            QString today_date = GetCurrentDate ();
-            QDate date_temp = QDate::fromString(today_date,"yyyy-MM-dd");
             start_date_deals.setDate(date_temp.year(), date_temp.month(), 1);
-            end_date_deals.setDate(date_temp.year(), date_temp.month(), date_temp.daysInMonth());
         }
+        end_date_deals.setDate(date_temp.year(), date_temp.month(), date_temp.daysInMonth());
     }
     filter_deals["start_date_deals"] = start_date_deals.toString("yyyy-MM-dd");
     filter_deals["end_date_deals"] = end_date_deals.toString("yyyy-MM-dd");
@@ -1101,7 +1101,7 @@ void MainWindow::on_pushButton_deals_clicked()
     QString command{};
     // добавить проверку фильтра
 
-    if ( FilterEmptyChecking(filter_deals) ) {
+    if ( filter_deals.empty() ) {
         command = "SELECT to_char(date_of_deal, 'DD-MM-YYYY'), customer, number_1c, postavshik, neftebaza, "
                                 "tovar_short_name, litres, plotnost, ves, price_in_tn, price_out_tn, "
                                 "price_out_litres, transp_cost_tn, commission, rentab_tn, profit,manager, "
@@ -1126,8 +1126,9 @@ void MainWindow::on_pushButton_deals_clicked()
 
     }
     //qDebug() << command;
+    int row_count = 0;
     if (std::optional<QSqlQuery> query = ExecuteSQL(command)) {
-            int row_count = 0; // начинаем с 1 строки. 0 строка под комбобоксы
+
             while(query.value().next()){
                 for (auto i = 0; i < 18; ++i) {
                     if (i > 5 && i != 17 && i != 7) {
@@ -1149,18 +1150,20 @@ void MainWindow::on_pushButton_deals_clicked()
             }
     }
 
-    if ( FilterEmptyChecking(filter_deals) ) {
+    //if ( filter_deals.empty() ) {
+       vect_deals_filters.clear();
        vect_deals_filters.reserve(18);
         for (int i = 0; i < 18; ++i) {
             std::set <QString> set_date{};
-            for (int y = 0; y < (model->rowCount()-1); ++y) {
+            qDebug() << "Количество строк: " << QString::number(model->rowCount());
+            for (int y = 0; y != row_count; ++y) {
                 QString temp_stroke = model->item(y, i)->text();
                 set_date.insert(temp_stroke);
             }
             std::vector <QString> temp (set_date.begin(), set_date.end());
-            vect_deals_filters.push_back(std::move(temp));
+            vect_deals_filters.push_back(temp);
         }
-    }
+    //}
 
 
     QObject::connect(model, &QStandardItemModel::itemChanged,
@@ -1188,7 +1191,7 @@ void MainWindow::on_pushButton_deals_clicked()
                             date ["id"] = id_string;
                             date [vect.value(column)] = new_text;
                             for (auto i = 0; i < vect.size(); ++i ) {
-                                date[vect.at(i)] = model->item(row,i)->text();
+                                if (i != column) {date[vect.at(i)] = model->item(row,i)->text();}
                             }
 
                             //UpdateSQLString ("deals", date);
@@ -1241,6 +1244,7 @@ void MainWindow::on_pushButton_deals_clicked()
     ui->tableView->verticalHeader()->setVisible(false); // отключить номерацию строк
     ui->tableView_header->verticalHeader()->setVisible(false); // отключить номерацию строк
     ui->tableView_header->setModel(model_header_);
+    ui->tableView_header->setEditTriggers(QAbstractItemView::AllEditTriggers);
 
     ui->tableView_header->horizontalHeader()->setFont(current_table_view_font);
     ui->tableView_header->setFont(current_table_view_font);
@@ -1268,18 +1272,19 @@ void MainWindow::on_pushButton_deals_clicked()
         ui->tableView->setColumnWidth(i, std::max(vect_head.at(i), vect_main.at(i)));
     }
 
-
-    if (first_launch || index_row_change_item <= 0) {
-        //прокрутка вниз влево
-        QModelIndex bottomLeft = model->index(model-> rowCount() - 1, 0);
-        ui->tableView->scrollTo(bottomLeft);
-        first_launch = false;
-    }
-    else {
-        if (index_row_change_item > 0) {
-            QModelIndex position = model->index(index_row_change_item, 0);
-            ui->tableView->scrollTo(position);
-            index_row_change_item = -1; //сброс индекса
+    if (row_count > 10) {
+        if (first_launch || index_row_change_item <= 0) {
+            //прокрутка вниз влево
+            QModelIndex bottomLeft = model->index(model-> rowCount() - 1, 0);
+            ui->tableView->scrollTo(bottomLeft);
+            first_launch = false;
+        }
+        else {
+            if (index_row_change_item > 0) {
+                QModelIndex position = model->index(index_row_change_item, 0);
+                ui->tableView->scrollTo(position);
+                index_row_change_item = -1; //сброс индекса
+            }
         }
     }
     connect(ui->tableView->selectionModel(),
@@ -2049,7 +2054,7 @@ void MainWindow::slotCustomMenuRequested(QPoint pos)
 }
 
 
-void MainWindow::CheckProgramUpdate()
+void MainWindow::CheckProgramUpdate(const double& programm_version)
 {
     QDir mydir("\\\\192.168.154.36\\Archive\\soft\\");
 
@@ -2065,8 +2070,8 @@ void MainWindow::CheckProgramUpdate()
         updfile.remove(0, 21);
         //qDebug()<< "Удалили начало: " << updfile;
         updfile.remove(updfile.lastIndexOf(".exe"), 4);
-        //qDebug()<< "Удалили конец: "<<updfile;
-        if (updfile.toDouble() > version) {
+        qDebug()<< QString::number(updfile.toDouble() - programm_version);
+        if ((updfile.toDouble() - programm_version) > 0.01) {
             //QMessageBox::warning(this, "Программа устарела","Вышла новая версия, запускаю установку");
             QMessageBox msgbox;
 
@@ -2088,7 +2093,7 @@ void MainWindow::CheckProgramUpdate()
                 if (!dir.mkpath(".")) {
                     QMessageBox::critical(0, "Cannot make path",
                                           "Не могу создать папку для обновления, проверьте свободное место на диске и запустите программу с правами администратора", QMessageBox::Cancel);
-                    MainWindow::~MainWindow();
+                    //MainWindow::~MainWindow();
                 };
 
 
@@ -2105,7 +2110,7 @@ void MainWindow::CheckProgramUpdate()
             }
 
             msgbox.close();
-            MainWindow::~MainWindow();
+            //MainWindow::~MainWindow();
         }
     }
     else {
